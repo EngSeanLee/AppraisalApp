@@ -1,0 +1,48 @@
+name: iOS Build & Test
+
+# Runs on a macOS GitHub-hosted runner so the project can be built/tested
+# without owning a Mac — see plan's "Solving the 'No Mac' Problem." This
+# builds/tests for the Simulator only (no code signing needed); wiring up
+# TestFlight distribution is a later step once the Apple Developer account
+# and signing secrets exist (see README's "Still needs you" section).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show available simulators
+        run: xcrun simctl list devices available
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project JewelryAppraisal.xcodeproj \
+            -scheme JewelryAppraisal \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project JewelryAppraisal.xcodeproj \
+            -scheme JewelryAppraisal \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            CODE_SIGNING_ALLOWED=NO
