@@ -3,17 +3,20 @@ import UIKit
 
 /// Core Flow step 4: "User taps a 'Photo' step, takes a picture of the
 /// piece, and it's automatically placed and sized into a designated photo
-/// region on the template."
+/// region on the template." Tapping offers a choice between the camera and
+/// the photo library — not every photo of a piece is taken fresh in the
+/// moment; some are already on the phone.
 struct PhotoCaptureView: View {
     @Binding var photoFilename: String?
     var region: CGRect
     var containerSize: CGSize
 
-    @State private var isShowingCamera = false
+    @State private var isShowingSourcePicker = false
+    @State private var pickerSourceType: UIImagePickerController.SourceType?
     @State private var cachedImage: UIImage?
 
     var body: some View {
-        Button(action: { isShowingCamera = true }) {
+        Button(action: { isShowingSourcePicker = true }) {
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: photoFilename == nil ? [4, 3] : []))
@@ -39,8 +42,13 @@ struct PhotoCaptureView: View {
             x: (region.minX + region.width / 2) * containerSize.width,
             y: (region.minY + region.height / 2) * containerSize.height
         )
-        .sheet(isPresented: $isShowingCamera) {
-            CameraCaptureView { image in
+        .confirmationDialog("Add Photo", isPresented: $isShowingSourcePicker, titleVisibility: .visible) {
+            Button("Take Photo") { pickerSourceType = .camera }
+            Button("Choose from Library") { pickerSourceType = .photoLibrary }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(item: $pickerSourceType) { sourceType in
+            CameraCaptureView(sourceType: sourceType) { image in
                 if let filename = PhotoStorage.save(image) {
                     if let old = photoFilename { PhotoStorage.delete(old) }
                     photoFilename = filename
@@ -60,4 +68,10 @@ struct PhotoCaptureView: View {
         }
         cachedImage = PhotoStorage.load(photoFilename)
     }
+}
+
+// So `.sheet(item:)` can key off which source type was picked — UIKit's
+// own `UIImagePickerController.SourceType` isn't Identifiable.
+extension UIImagePickerController.SourceType: @retroactive Identifiable {
+    public var id: Int { rawValue }
 }

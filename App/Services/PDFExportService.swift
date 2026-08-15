@@ -26,10 +26,16 @@ enum PDFExportService {
             let page = CGRect(origin: .zero, size: pageSize)
 
             drawBackground(in: page)
-            drawText(appraisal.customerName, in: rect(for: layout.customerName, page: page), maxFontSize: 16)
-            drawText(formattedDate(appraisal.date), in: rect(for: layout.date, page: page), maxFontSize: 14)
-            drawText(appraisal.address, in: rect(for: layout.address, page: page), maxFontSize: 14)
-            drawText(appraisal.descriptionText, in: rect(for: layout.itemDescription, page: page), maxFontSize: 13)
+            // The letterhead has no pre-printed field labels (see
+            // TemplateLayout's doc comment) — without a label baked into
+            // what we draw, the printed page is just floating values with
+            // nothing saying what they are. Replacement Value doesn't need
+            // one: its own displayString already starts with the words
+            // "Replacement Value".
+            drawLabeledText("Name", appraisal.customerName, in: rect(for: layout.customerName, page: page), maxFontSize: 16)
+            drawLabeledText("Date", formattedDate(appraisal.date), in: rect(for: layout.date, page: page), maxFontSize: 14)
+            drawLabeledText("Address", appraisal.address, in: rect(for: layout.address, page: page), maxFontSize: 14)
+            drawLabeledText("Description", appraisal.descriptionText, in: rect(for: layout.itemDescription, page: page), maxFontSize: 13)
             drawText(appraisal.replacementValue.displayString, in: rect(for: layout.replacementValue, page: page), maxFontSize: 13)
 
             for (photo, slot) in zip(photos, layout.photoSlots) {
@@ -81,6 +87,15 @@ enum PDFExportService {
         UIBezierPath(rect: rect).addClip()
         image.draw(in: drawRect)
         UIGraphicsGetCurrentContext()?.restoreGState()
+    }
+
+    /// "Name: Jane Smith" — prepends a printed label so the field reads as
+    /// something on a blank letterhead with no pre-printed labels of its
+    /// own. Skipped entirely (not even the bare label) when `value` is
+    /// empty, same as plain `drawText`.
+    private static func drawLabeledText(_ label: String, _ value: String, in rect: CGRect, maxFontSize: CGFloat) {
+        guard !value.isEmpty else { return }
+        drawText("\(label): \(value)", in: rect, maxFontSize: maxFontSize)
     }
 
     /// Draws `text` centered-fit within `rect`, shrinking the font until it

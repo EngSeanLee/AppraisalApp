@@ -1,19 +1,20 @@
 import SwiftUI
 import UIKit
 
-/// Thin UIKit bridge for camera capture. `PhotosPicker` (the modern SwiftUI
-/// API) only picks existing photos — it can't drive the camera — so the
-/// plan's "takes a picture of the piece" step needs `UIImagePickerController`
-/// under the hood. Falls back to the photo library on the Simulator, where
-/// no camera exists.
+/// Thin UIKit bridge for photo capture/picking. `PhotosPicker` (the modern
+/// SwiftUI API) only picks existing photos — it can't drive the camera —
+/// so both paths go through `UIImagePickerController`. Falls back to the
+/// photo library if the requested source (camera, on the Simulator where
+/// none exists) isn't actually available.
 struct CameraCaptureView: UIViewControllerRepresentable {
+    var sourceType: UIImagePickerController.SourceType
     var onCapture: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
-        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(sourceType) ? sourceType : .photoLibrary
         return picker
     }
 

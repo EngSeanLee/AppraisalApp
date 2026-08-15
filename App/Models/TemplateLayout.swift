@@ -36,7 +36,7 @@ struct TemplateLayout: Codable, Equatable {
     /// The "Replacement Value…….$X,XXX.00" line, immediately after the
     /// description rather than pinned to the bottom of the page.
     var replacementValue: CGRect
-    /// The static "PER ________" stamp line at the very bottom, right
+    /// The static "PER ________" stamp line at the very bottom right,
     /// under the photos — Tony signs/stamps this by hand after printing.
     /// Not bound to any `Appraisal` field: the appraiser is always Tony,
     /// so there's nothing to type here, just a printed label + blank line
@@ -70,8 +70,9 @@ struct TemplateLayout: Codable, Equatable {
         // bottom, which put it right up against the border).
         replacementValue: CGRect(x: 0.09, y: 0.57, width: 0.82, height: 0.04),
         // Right under the photo row (which ends at 0.85), well clear of
-        // the bottom border (~0.94).
-        perLine: CGRect(x: 0.09, y: 0.87, width: 0.45, height: 0.04)
+        // the bottom border (~0.94) — right-aligned to the same right
+        // edge (0.91) every other field lines up against.
+        perLine: CGRect(x: 0.46, y: 0.87, width: 0.45, height: 0.04)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay
