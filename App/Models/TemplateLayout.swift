@@ -5,12 +5,15 @@ import Foundation
 /// fractions (0–1) of the image's width/height — so layout survives the
 /// image being scaled to fit different screen/print sizes.
 ///
-/// The numbers below are placeholder guesses, NOT the real letterhead
-/// layout — see plan's Open Items ("Finalize the template image ... field
-/// positions"). Once the real template image and its field coordinates
-/// exist, replace `TemplateLayout.default` (or load a JSON override) —
-/// nothing else in the view layer needs to change, since every view reads
-/// positions from here rather than hardcoding them.
+/// Tuned against the real letterhead (`Tony's Jewelry Template.pdf` →
+/// `AppraisalTemplate` in Assets.xcassets): a decorative silver border with
+/// the "Tony's Jewelry & Custom Design" logo block in the upper-left, and
+/// nothing else pre-printed — Tony's paper form has no ruled field lines to
+/// match, so these positions are a layout choice, not a measurement. Only
+/// constraints: stay inside the border (~5% margin) and below the logo
+/// (bottom edge ~23% down). Eyeballed, not pixel-measured — nudge these if
+/// the real printed/exported page looks off once someone can view it on an
+/// actual device or printer.
 enum TemplateAsset {
     /// Name of the letterhead image in Assets.xcassets. Both the on-screen
     /// preview (`TemplateBackgroundView`) and the PDF export
@@ -27,11 +30,11 @@ struct TemplateLayout: Codable, Equatable {
     var photo: CGRect
 
     static let `default` = TemplateLayout(
-        customerName: CGRect(x: 0.08, y: 0.14, width: 0.55, height: 0.05),
-        date: CGRect(x: 0.70, y: 0.14, width: 0.22, height: 0.05),
-        address: CGRect(x: 0.08, y: 0.21, width: 0.55, height: 0.05),
-        itemDescription: CGRect(x: 0.08, y: 0.32, width: 0.84, height: 0.30),
-        photo: CGRect(x: 0.08, y: 0.65, width: 0.35, height: 0.28)
+        customerName: CGRect(x: 0.09, y: 0.27, width: 0.52, height: 0.035),
+        date: CGRect(x: 0.66, y: 0.27, width: 0.25, height: 0.035),
+        address: CGRect(x: 0.09, y: 0.32, width: 0.82, height: 0.035),
+        itemDescription: CGRect(x: 0.09, y: 0.39, width: 0.82, height: 0.34),
+        photo: CGRect(x: 0.09, y: 0.76, width: 0.36, height: 0.17)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay
