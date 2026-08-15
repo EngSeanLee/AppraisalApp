@@ -26,15 +26,23 @@ struct TemplateLayout: Codable, Equatable {
     var customerName: CGRect
     var date: CGRect
     var address: CGRect
+    /// The appraiser "PER" line — name and, when present, its credential
+    /// line stacked underneath (drawn as "name\ncredential").
+    var appraiser: CGRect
     var itemDescription: CGRect
     var photo: CGRect
+    /// One or more "Replacement Value…….$X,XXX.00" lines, stacked
+    /// top-to-bottom when the appraisal is itemized per piece.
+    var replacementValue: CGRect
 
     static let `default` = TemplateLayout(
         customerName: CGRect(x: 0.09, y: 0.27, width: 0.52, height: 0.035),
         date: CGRect(x: 0.66, y: 0.27, width: 0.25, height: 0.035),
         address: CGRect(x: 0.09, y: 0.32, width: 0.82, height: 0.035),
-        itemDescription: CGRect(x: 0.09, y: 0.39, width: 0.82, height: 0.34),
-        photo: CGRect(x: 0.09, y: 0.76, width: 0.36, height: 0.17)
+        appraiser: CGRect(x: 0.09, y: 0.365, width: 0.55, height: 0.045),
+        itemDescription: CGRect(x: 0.09, y: 0.42, width: 0.82, height: 0.30),
+        photo: CGRect(x: 0.09, y: 0.74, width: 0.36, height: 0.14),
+        replacementValue: CGRect(x: 0.09, y: 0.90, width: 0.82, height: 0.05)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay

@@ -1,24 +1,37 @@
 import SwiftUI
 
-/// Hybrid description input from the plan: guided prompts for each
-/// required element assemble into one editable text box. The box is the
-/// override surface — once the user types into it directly, it stops being
+/// Hybrid description input from the plan: guided prompts for one or more
+/// pieces assemble into one editable text box. The box is the override
+/// surface — once the user types into it directly, it stops being
 /// regenerated from the checklist so their edits are never clobbered.
 struct DescriptionBuilderView: View {
-    @Binding var elements: DescriptionElements
+    @Binding var pieces: [Piece]
+    let valuationMode: ValuationMode
     @Binding var descriptionText: String
     @Binding var manuallyEdited: Bool
     @ObservedObject var speech: SpeechRecognitionService
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Description").font(.title3.bold())
 
-            MetalStepView(field: $elements.metal, speech: speech)
-            ItemStyleStepView(field: $elements.itemStyle, speech: speech)
-            CenterStoneStepView(field: $elements.centerStone, speech: speech)
-            CertificationStepView(field: $elements.certification, speech: speech)
-            SideStonesStepView(field: $elements.sideStones, speech: speech)
+            ForEach($pieces) { $piece in
+                PieceEditorView(
+                    piece: $piece,
+                    index: pieces.firstIndex(where: { $0.id == piece.id }) ?? 0,
+                    pieceCount: pieces.count,
+                    valuationMode: valuationMode,
+                    speech: speech,
+                    onRemove: { pieces.removeAll { $0.id == piece.id } }
+                )
+            }
+
+            Button {
+                pieces.append(Piece())
+            } label: {
+                Label("Add Another Piece", systemImage: "plus.circle")
+            }
+            .font(.subheadline)
 
             Divider().padding(.vertical, 4)
 
@@ -27,7 +40,7 @@ struct DescriptionBuilderView: View {
                 Spacer()
                 if manuallyEdited {
                     Button("Regenerate from checklist") {
-                        descriptionText = DescriptionTemplateEngine.assemble(elements)
+                        descriptionText = DescriptionTemplateEngine.assemble(pieces)
                         manuallyEdited = false
                     }
                     .font(.caption)
@@ -39,12 +52,12 @@ struct DescriptionBuilderView: View {
                 .padding(6)
                 .background(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.4)))
                 .onChange(of: descriptionText) { _, newValue in
-                    if newValue != DescriptionTemplateEngine.assemble(elements) {
+                    if newValue != DescriptionTemplateEngine.assemble(pieces) {
                         manuallyEdited = true
                     }
                 }
         }
-        .onChange(of: elements) { _, newValue in
+        .onChange(of: pieces) { _, newValue in
             guard !manuallyEdited else { return }
             descriptionText = DescriptionTemplateEngine.assemble(newValue)
         }

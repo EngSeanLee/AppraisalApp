@@ -71,8 +71,10 @@ struct TemplateBackgroundView: View {
             Slot(label: "Name", rect: layout.customerName),
             Slot(label: "Date", rect: layout.date),
             Slot(label: "Address", rect: layout.address),
+            Slot(label: "Appraiser", rect: layout.appraiser),
             Slot(label: "Description", rect: layout.itemDescription),
-            Slot(label: "Photo", rect: layout.photo)
+            Slot(label: "Photo", rect: layout.photo),
+            Slot(label: "Replacement Value", rect: layout.replacementValue)
         ]
     }
 }

@@ -14,8 +14,6 @@ struct AppraisalFormView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    itemTypePicker
-
                     templatePreview
 
                     TapToSpeakField(title: "Customer Name", text: $viewModel.appraisal.customerName, speech: viewModel.speech)
@@ -24,8 +22,16 @@ struct AppraisalFormView: View {
 
                     TapToSpeakField(title: "Address", text: $viewModel.appraisal.address, speech: viewModel.speech)
 
+                    AppraiserFieldView(appraiser: $viewModel.appraisal.appraiser, speech: viewModel.speech)
+
+                    ValuationSectionView(
+                        valuationMode: $viewModel.appraisal.valuationMode,
+                        combinedValue: $viewModel.appraisal.combinedReplacementValue
+                    )
+
                     DescriptionBuilderView(
-                        elements: $viewModel.appraisal.descriptionElements,
+                        pieces: $viewModel.appraisal.pieces,
+                        valuationMode: viewModel.appraisal.valuationMode,
                         descriptionText: $viewModel.appraisal.descriptionText,
                         manuallyEdited: $viewModel.appraisal.descriptionManuallyEdited,
                         speech: viewModel.speech
@@ -48,15 +54,6 @@ struct AppraisalFormView: View {
                 Text(viewModel.exportError ?? "")
             }
         }
-    }
-
-    private var itemTypePicker: some View {
-        Picker("Item Type", selection: $viewModel.appraisal.descriptionElements.itemType) {
-            ForEach(ItemType.allCases) { type in
-                Text(type.displayName).tag(type)
-            }
-        }
-        .pickerStyle(.segmented)
     }
 
     private var templatePreview: some View {

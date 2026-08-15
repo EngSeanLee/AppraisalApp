@@ -26,7 +26,9 @@ enum PDFExportService {
             drawText(appraisal.customerName, in: rect(for: layout.customerName, page: page), maxFontSize: 16)
             drawText(formattedDate(appraisal.date), in: rect(for: layout.date, page: page), maxFontSize: 14)
             drawText(appraisal.address, in: rect(for: layout.address, page: page), maxFontSize: 14)
+            drawText(appraiserLine(appraisal.appraiser), in: rect(for: layout.appraiser, page: page), maxFontSize: 12)
             drawText(appraisal.descriptionText, in: rect(for: layout.itemDescription, page: page), maxFontSize: 13)
+            drawText(appraisal.replacementValueLines.joined(separator: "\n"), in: rect(for: layout.replacementValue, page: page), maxFontSize: 13)
 
             if let photo {
                 drawPhoto(photo, in: rect(for: layout.photo, page: page))
@@ -114,6 +116,15 @@ enum PDFExportService {
             width: normalized.width * page.width,
             height: normalized.height * page.height
         )
+    }
+
+    /// "Tony Lee" alone, or "Christopher D. Walker\nGIA Certified Grader"
+    /// when a credential line was given — `drawText` word-wraps on real
+    /// newlines, so the credential lands on its own line underneath.
+    private static func appraiserLine(_ appraiser: AppraiserInfo) -> String {
+        let credential = appraiser.credential.trimmingCharacters(in: .whitespaces)
+        guard !credential.isEmpty else { return appraiser.name }
+        return "\(appraiser.name)\n\(credential)"
     }
 
     private static func formattedDate(_ date: Date) -> String {
