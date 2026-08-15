@@ -1,0 +1,69 @@
+name: Build Sideload IPA
+
+# Manual only (workflow_dispatch, no push trigger) -- unlike ios-build.yml,
+# this isn't run on every commit. It produces an *unsigned* .ipa for
+# AltStore/Sideloadly to sign with your own free Apple ID for on-device
+# testing, ahead of paying for the Apple Developer Program. Kept as its
+# own workflow, triggered on demand, so routine pushes don't burn extra
+# macOS-runner minutes (GitHub's free tier charges those at 10x against
+# the monthly minutes allowance) building an artifact you don't need for
+# every single change.
+#
+# "Unsigned" here means CODE_SIGNING_ALLOWED=NO for a real-device (not
+# Simulator) build -- no Apple Developer account, certificate, or
+# provisioning profile involved on this end at all. AltStore/Sideloadly
+# do the actual signing on your machine using your own Apple ID when you
+# install the .ipa.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned app for a real device
+        run: |
+          xcodebuild build \
+            -project JewelryAppraisal.xcodeproj \
+            -scheme JewelryAppraisal \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
+
+      - name: Package as .ipa
+        run: |
+          set -euo pipefail
+          APP_PATH="build/Build/Products/Debug-iphoneos/JewelryAppraisal.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Built .app not found at $APP_PATH -- contents of Products:"
+            find build/Build/Products -maxdepth 2
+            exit 1
+          fi
+          mkdir -p ipa/Payload
+          cp -R "$APP_PATH" ipa/Payload/
+          (cd ipa && zip -r -y ../JewelryAppraisal.ipa Payload)
+
+      - name: Upload .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: JewelryAppraisal-unsigned-ipa
+          path: JewelryAppraisal.ipa
+          retention-days: 14

@@ -65,6 +65,42 @@ signal, checked on every push.
 - **CI** (`.github/workflows/ios-build.yml`) — builds and runs tests on a
   macOS GitHub Actions runner on every push, no signing required (Simulator
   build only).
+- **Sideload builds** (`.github/workflows/ios-sideload-ipa.yml`) — manually
+  triggered (`Run workflow` on the Actions tab, or `gh workflow run
+  ios-sideload-ipa.yml`), produces an unsigned `.ipa` for a real device as
+  a downloadable workflow artifact, for testing on your own phone with
+  AltStore/Sideloadly + your free Apple ID, before paying for the Developer
+  Program. See "Testing on your phone for free" below. Kept off the normal
+  push trigger on purpose — macOS runner minutes count 10x against
+  GitHub's free-tier allowance, and this isn't needed on every commit.
+
+## Testing on your phone for free
+
+Before paying for the Apple Developer Program, you can install this app on
+your own iPhone for free using [AltStore](https://altstore.io) (or
+[Sideloadly](https://sideloadly.io), similar tool) — no Mac needed, since
+the actual compiling still happens on the GitHub Actions macOS runner.
+
+1. Install **AltServer for Windows** on this PC, and **AltStore** on your
+   iPhone through it (AltServer's tray icon → your device → "Install
+   AltStore"). First-time pairing needs a USB cable; after that it can work
+   over WiFi as long as your phone and this PC are on the same network.
+2. Trigger the `ios-sideload-ipa.yml` workflow (Actions tab → "Build
+   Sideload IPA" → "Run workflow"), then download the `.ipa` from the
+   finished run's Artifacts section.
+3. Right-click AltServer's tray icon → your device → **Install .ipa**, and
+   pick the downloaded file. It'll ask for your Apple ID — a regular free
+   one, not a paid Developer account.
+4. On the phone: **Settings → General → VPN & Device Management** → tap
+   your Apple ID → **Trust**, then open the app.
+
+Free-tier signing like this expires after **7 days** — AltStore can
+refresh it automatically in the background if AltServer stays running on
+this PC and your phone checks in over WiFi periodically, or you can just
+re-run steps 2–3 whenever it lapses. I haven't been able to test this
+sideload path myself (no device, no AltStore access from here), so treat
+the exact AltServer UI wording as approximate — shout if anything doesn't
+match what you see.
 
 ## Still needs you
 
@@ -72,7 +108,8 @@ Nothing below can be done from here — they need your accounts, your
 hardware, or your dad's paperwork.
 
 1. **Apple Developer Program** — $99/year, apple.com/programs, browser-only,
-   no Mac needed. Required before real-device install or TestFlight.
+   no Mac needed. Required before TestFlight or the App Store (not before
+   on-device testing — see "Testing on your phone for free" above).
 
 2. **Look at the real template on an actual device or printer.** The
    letterhead artwork is in and the field positions in
