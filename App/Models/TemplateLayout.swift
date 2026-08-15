@@ -26,19 +26,22 @@ struct TemplateLayout: Codable, Equatable {
     var customerName: CGRect
     var date: CGRect
     var address: CGRect
-    /// The appraiser "PER" line — name and, when present, its credential
-    /// line stacked underneath (drawn as "name\ncredential").
-    var appraiser: CGRect
     var itemDescription: CGRect
-    /// Three equal-width photo slots side by side, spanning the same
-    /// horizontal footprint the single photo box used to occupy alone —
-    /// multiple angles of the piece, not one enlarged shot.
+    /// Three equal, roughly square photo slots side by side, spanning the
+    /// same width the other fields do (0.09–0.91) — multiple angles of the
+    /// piece, sized to actually be usable rather than thumbnails.
     var photoOne: CGRect
     var photoTwo: CGRect
     var photoThree: CGRect
-    /// One or more "Replacement Value…….$X,XXX.00" lines, stacked
+    /// The "Replacement Value…….$X,XXX.00" line(s), immediately after the
+    /// description rather than pinned to the bottom of the page — stacked
     /// top-to-bottom when the appraisal is itemized per piece.
     var replacementValue: CGRect
+
+    // Note: there is deliberately no `appraiser` region here anymore.
+    // Appraisal.appraiser (the "PER" line) is still collected in the app
+    // via AppraiserFieldView — it's just not drawn onto the printed
+    // template right now. See PDFExportService if/when it needs a spot.
 
     /// The three photo slots in left-to-right order, for callers that want
     /// to iterate (the on-screen preview, PDF export) rather than name
@@ -49,18 +52,23 @@ struct TemplateLayout: Codable, Equatable {
         customerName: CGRect(x: 0.09, y: 0.27, width: 0.52, height: 0.035),
         date: CGRect(x: 0.66, y: 0.27, width: 0.25, height: 0.035),
         address: CGRect(x: 0.09, y: 0.32, width: 0.82, height: 0.035),
-        appraiser: CGRect(x: 0.09, y: 0.365, width: 0.55, height: 0.045),
-        // Shrunk 25% (0.30 -> 0.225) and moved up flush against the
-        // appraiser row (0.42 -> 0.41) so a full-length description no
-        // longer crowds the photo row or the Replacement Value line below.
-        itemDescription: CGRect(x: 0.09, y: 0.41, width: 0.82, height: 0.225),
-        // Same combined footprint the old single 0.36-wide photo box
-        // occupied (x: 0.09–0.45), split into 3 equal 0.11-wide slots with
-        // 0.015 gaps between them: 3×0.11 + 2×0.015 = 0.36.
-        photoOne: CGRect(x: 0.09, y: 0.74, width: 0.11, height: 0.14),
-        photoTwo: CGRect(x: 0.215, y: 0.74, width: 0.11, height: 0.14),
-        photoThree: CGRect(x: 0.34, y: 0.74, width: 0.11, height: 0.14),
-        replacementValue: CGRect(x: 0.09, y: 0.90, width: 0.82, height: 0.05)
+        // Moved up now that the appraiser row above it is gone, and
+        // shrunk another 15% on top of the prior 25% cut
+        // (0.30 -> 0.225 -> ~0.191), so there's room for the Replacement
+        // Value line right underneath and the photo row below that,
+        // without crowding the bottom border.
+        itemDescription: CGRect(x: 0.09, y: 0.37, width: 0.82, height: 0.19125),
+        // Immediately after the description (not pinned to the page
+        // bottom, which put it right up against the border).
+        replacementValue: CGRect(x: 0.09, y: 0.57, width: 0.82, height: 0.04),
+        // Full content width (0.09–0.91, matching every other field) split
+        // into 3 equal slots with 0.02 gaps: 3×0.26 + 2×0.02 = 0.82. Height
+        // is width × (page width ÷ page height) = 0.26 × (8.5/11) ≈ 0.20,
+        // so each slot renders as an actual square on the US-Letter page,
+        // not a portrait-cropped rectangle.
+        photoOne: CGRect(x: 0.09, y: 0.65, width: 0.26, height: 0.20),
+        photoTwo: CGRect(x: 0.37, y: 0.65, width: 0.26, height: 0.20),
+        photoThree: CGRect(x: 0.65, y: 0.65, width: 0.26, height: 0.20)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay
