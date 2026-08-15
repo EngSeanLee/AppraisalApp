@@ -3,6 +3,7 @@
 *.xcworkspace/
 DerivedData/
 build/
+Generated/
 
 # Swift Package Manager
 .build/

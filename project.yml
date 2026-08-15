@@ -23,7 +23,14 @@ targets:
         # up automatically — xcodegen treats .xcassets as a resource even
         # inside a "sources" folder, so no separate "resources:" entry needed.
     info:
-      # No path given: XcodeGen generates Info.plist from these properties directly.
+      # `path` is required even in generate-mode — it's where XcodeGen writes
+      # the Info.plist it builds from `properties` below, not a reference to
+      # an existing file (missing it is what broke CI run #1: "Decoding
+      # failed at 'path': Nothing found"). Kept outside App/ so it isn't also
+      # swept up as a resource by the `sources: - path: App` entry above.
+      # Generated on every `xcodegen generate`, so it's gitignored like the
+      # .xcodeproj.
+      path: Generated/Info.plist
       properties:
         UILaunchScreen: {}
         NSSpeechRecognitionUsageDescription: "Used to fill appraisal fields by voice instead of typing."
