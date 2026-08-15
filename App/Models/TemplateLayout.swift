@@ -30,18 +30,36 @@ struct TemplateLayout: Codable, Equatable {
     /// line stacked underneath (drawn as "name\ncredential").
     var appraiser: CGRect
     var itemDescription: CGRect
-    var photo: CGRect
+    /// Three equal-width photo slots side by side, spanning the same
+    /// horizontal footprint the single photo box used to occupy alone —
+    /// multiple angles of the piece, not one enlarged shot.
+    var photoOne: CGRect
+    var photoTwo: CGRect
+    var photoThree: CGRect
     /// One or more "Replacement Value…….$X,XXX.00" lines, stacked
     /// top-to-bottom when the appraisal is itemized per piece.
     var replacementValue: CGRect
+
+    /// The three photo slots in left-to-right order, for callers that want
+    /// to iterate (the on-screen preview, PDF export) rather than name
+    /// each one individually.
+    var photoSlots: [CGRect] { [photoOne, photoTwo, photoThree] }
 
     static let `default` = TemplateLayout(
         customerName: CGRect(x: 0.09, y: 0.27, width: 0.52, height: 0.035),
         date: CGRect(x: 0.66, y: 0.27, width: 0.25, height: 0.035),
         address: CGRect(x: 0.09, y: 0.32, width: 0.82, height: 0.035),
         appraiser: CGRect(x: 0.09, y: 0.365, width: 0.55, height: 0.045),
-        itemDescription: CGRect(x: 0.09, y: 0.42, width: 0.82, height: 0.30),
-        photo: CGRect(x: 0.09, y: 0.74, width: 0.36, height: 0.14),
+        // Shrunk 25% (0.30 -> 0.225) and moved up flush against the
+        // appraiser row (0.42 -> 0.41) so a full-length description no
+        // longer crowds the photo row or the Replacement Value line below.
+        itemDescription: CGRect(x: 0.09, y: 0.41, width: 0.82, height: 0.225),
+        // Same combined footprint the old single 0.36-wide photo box
+        // occupied (x: 0.09–0.45), split into 3 equal 0.11-wide slots with
+        // 0.015 gaps between them: 3×0.11 + 2×0.015 = 0.36.
+        photoOne: CGRect(x: 0.09, y: 0.74, width: 0.11, height: 0.14),
+        photoTwo: CGRect(x: 0.215, y: 0.74, width: 0.11, height: 0.14),
+        photoThree: CGRect(x: 0.34, y: 0.74, width: 0.11, height: 0.14),
         replacementValue: CGRect(x: 0.09, y: 0.90, width: 0.82, height: 0.05)
     )
 }

@@ -15,7 +15,10 @@ enum PDFExportService {
     /// detail regardless of page point size.)
     private static let pageSize = CGSize(width: 8.5 * 72, height: 11 * 72)
 
-    static func export(appraisal: Appraisal, layout: TemplateLayout, photo: UIImage?) throws -> URL {
+    /// `photos` is positionally matched to `layout.photoSlots` (index 0 =
+    /// leftmost slot); fewer than 3 elements or nil entries just leave that
+    /// slot blank.
+    static func export(appraisal: Appraisal, layout: TemplateLayout, photos: [UIImage?]) throws -> URL {
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize))
 
         let data = renderer.pdfData { context in
@@ -30,8 +33,10 @@ enum PDFExportService {
             drawText(appraisal.descriptionText, in: rect(for: layout.itemDescription, page: page), maxFontSize: 13)
             drawText(appraisal.replacementValueLines.joined(separator: "\n"), in: rect(for: layout.replacementValue, page: page), maxFontSize: 13)
 
-            if let photo {
-                drawPhoto(photo, in: rect(for: layout.photo, page: page))
+            for (photo, slot) in zip(photos, layout.photoSlots) {
+                if let photo {
+                    drawPhoto(photo, in: rect(for: slot, page: page))
+                }
             }
         }
 

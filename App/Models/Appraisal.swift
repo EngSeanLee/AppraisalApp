@@ -78,9 +78,12 @@ struct Appraisal: Codable, Equatable {
     var descriptionText: String = ""
     var descriptionManuallyEdited: Bool = false
 
-    /// Filename of the captured photo within the app's document storage
-    /// (kept as a filename, not raw image data, to stay Codable/lightweight).
-    var photoFilename: String?
+    /// Filenames of the up to 3 captured piece photos within the app's
+    /// document storage (kept as filenames, not raw image data, to stay
+    /// Codable/lightweight), positionally matched to
+    /// `TemplateLayout.photoSlots` — index 0 is the leftmost slot, etc.
+    /// Always 3 elements; a nil means that slot hasn't been captured yet.
+    var photoFilenames: [String?] = [nil, nil, nil]
 
     init(itemType: ItemType = .ring) {
         self.pieces = [Piece(itemType: itemType)]
@@ -106,6 +109,6 @@ struct Appraisal: Codable, Equatable {
     var isReadyToExport: Bool {
         !customerName.trimmingCharacters(in: .whitespaces).isEmpty
             && !descriptionText.trimmingCharacters(in: .whitespaces).isEmpty
-            && photoFilename != nil
+            && photoFilenames.contains { $0 != nil }
     }
 }

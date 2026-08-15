@@ -18,9 +18,9 @@ final class AppraisalViewModel: ObservableObject {
     }
 
     func export(layout: TemplateLayout) {
-        let photo = appraisal.photoFilename.flatMap { PhotoStorage.load($0) }
+        let photos = appraisal.photoFilenames.map { filename in filename.flatMap { PhotoStorage.load($0) } }
         do {
-            let url = try PDFExportService.export(appraisal: appraisal, layout: layout, photo: photo)
+            let url = try PDFExportService.export(appraisal: appraisal, layout: layout, photos: photos)
             exportedPDFURL = url
             exportError = nil
         } catch {

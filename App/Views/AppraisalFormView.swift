@@ -60,7 +60,9 @@ struct AppraisalFormView: View {
         GeometryReader { proxy in
             ZStack {
                 TemplateBackgroundView(layout: layout)
-                PhotoCaptureView(photoFilename: $viewModel.appraisal.photoFilename, region: layout.photo, containerSize: proxy.size)
+                PhotoCaptureView(photoFilename: $viewModel.appraisal.photoFilenames[0], region: layout.photoOne, containerSize: proxy.size)
+                PhotoCaptureView(photoFilename: $viewModel.appraisal.photoFilenames[1], region: layout.photoTwo, containerSize: proxy.size)
+                PhotoCaptureView(photoFilename: $viewModel.appraisal.photoFilenames[2], region: layout.photoThree, containerSize: proxy.size)
             }
         }
         .aspectRatio(8.5 / 11, contentMode: .fit)
