@@ -17,7 +17,12 @@ struct StonesStepView: View {
                 Label(stones.isEmpty ? "None" : "\(stones.count) added",
                       systemImage: stones.isEmpty ? "circle" : "checkmark.circle.fill")
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(stones.isEmpty ? .secondary : .green)
+                    // Explicit `Color.` on both branches: `.secondary` alone is
+                    // ambiguous between `Color.secondary` and
+                    // `HierarchicalShapeStyle.secondary`, and the compiler
+                    // picks the latter here, which has no `.green` — a real
+                    // build failure caught by CI, not just a style nit.
+                    .foregroundStyle(stones.isEmpty ? Color.secondary : Color.green)
             }
 
             ForEach($stones) { $stone in
