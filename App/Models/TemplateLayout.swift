@@ -58,9 +58,6 @@ struct TemplateLayout: Codable, Equatable {
         // Value line right underneath and the photo row below that,
         // without crowding the bottom border.
         itemDescription: CGRect(x: 0.09, y: 0.37, width: 0.82, height: 0.19125),
-        // Immediately after the description (not pinned to the page
-        // bottom, which put it right up against the border).
-        replacementValue: CGRect(x: 0.09, y: 0.57, width: 0.82, height: 0.04),
         // Full content width (0.09–0.91, matching every other field) split
         // into 3 equal slots with 0.02 gaps: 3×0.26 + 2×0.02 = 0.82. Height
         // is width × (page width ÷ page height) = 0.26 × (8.5/11) ≈ 0.20,
@@ -68,7 +65,10 @@ struct TemplateLayout: Codable, Equatable {
         // not a portrait-cropped rectangle.
         photoOne: CGRect(x: 0.09, y: 0.65, width: 0.26, height: 0.20),
         photoTwo: CGRect(x: 0.37, y: 0.65, width: 0.26, height: 0.20),
-        photoThree: CGRect(x: 0.65, y: 0.65, width: 0.26, height: 0.20)
+        photoThree: CGRect(x: 0.65, y: 0.65, width: 0.26, height: 0.20),
+        // Immediately after the description (not pinned to the page
+        // bottom, which put it right up against the border).
+        replacementValue: CGRect(x: 0.09, y: 0.57, width: 0.82, height: 0.04)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay
