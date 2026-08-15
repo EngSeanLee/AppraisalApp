@@ -12,6 +12,10 @@ struct TapToSpeakField: View {
 
     @State private var isTypingMode = false
     @FocusState private var isFocused: Bool
+    /// This field's own identity with `speech`, so it only reacts to a
+    /// listening session it started itself — see
+    /// `SpeechRecognitionService.activeListenerID`.
+    @State private var fieldID = UUID()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -53,7 +57,7 @@ struct TapToSpeakField: View {
     }
 
     private var isListening: Bool {
-        speech.state == .listening
+        speech.activeListenerID == fieldID
     }
 
     private var displayText: String {
@@ -66,7 +70,7 @@ struct TapToSpeakField: View {
             speech.stopListening()
         } else {
             do {
-                try speech.startListening()
+                try speech.startListening(for: fieldID)
             } catch {
                 // Surfacing a full error UI is unnecessary for a first pass —
                 // the mic simply won't start; the keyboard toggle remains

@@ -20,52 +20,28 @@ final class AppraisalTests: XCTestCase {
         XCTAssertTrue(ReplacementValue().isEmpty)
     }
 
-    // MARK: - Appraisal.replacementValueLines
+    // MARK: - Appraisal.isReadyToExport
 
-    func test_combinedValuation_producesOneLine() {
+    func test_isReadyToExport_falseUntilNameDescriptionAndAPhotoAreAllPresent() {
         var appraisal = Appraisal()
-        appraisal.valuationMode = .combined
-        appraisal.combinedReplacementValue = ReplacementValue(amount: 7850, marketNote: "")
+        XCTAssertFalse(appraisal.isReadyToExport)
 
-        XCTAssertEqual(appraisal.replacementValueLines, ["Replacement Value…….$7,850.00"])
+        appraisal.customerName = "Jane Smith"
+        XCTAssertFalse(appraisal.isReadyToExport)
+
+        appraisal.descriptionText = "14kt white gold ring with a round diamond."
+        XCTAssertFalse(appraisal.isReadyToExport, "still missing a photo")
+
+        appraisal.photoFilenames[0] = "photo.jpg"
+        XCTAssertTrue(appraisal.isReadyToExport)
     }
 
-    /// Itemized mode (spec clause #6): each priced piece gets its own
-    /// labeled line, e.g. "Replacement Value engagement ring……$6,950.00" /
-    /// "Replacement Value on the band……$2,500.00" — matching Phoenix
-    /// Carter's real appraisal in the spec.
-    func test_itemizedValuation_producesOneLinePerPricedPiece() {
+    func test_isReadyToExport_anyOfTheThreePhotoSlotsCounts() {
         var appraisal = Appraisal()
-        appraisal.valuationMode = .itemized
+        appraisal.customerName = "Jane Smith"
+        appraisal.descriptionText = "A ring."
+        appraisal.photoFilenames = [nil, "photo.jpg", nil]
 
-        var engagementRing = Piece(itemType: .ring)
-        engagementRing.pieceLabel = "engagement ring"
-        engagementRing.replacementValue = ReplacementValue(amount: 6950, marketNote: "")
-
-        var band = Piece(itemType: .ring)
-        band.pieceLabel = "on the band"
-        band.replacementValue = ReplacementValue(amount: 2500, marketNote: "")
-
-        appraisal.pieces = [engagementRing, band]
-
-        XCTAssertEqual(appraisal.replacementValueLines, [
-            "Replacement Value engagement ring…….$6,950.00",
-            "Replacement Value on the band…….$2,500.00"
-        ])
-    }
-
-    func test_itemizedValuation_skipsPiecesWithoutAValueYet() {
-        var appraisal = Appraisal()
-        appraisal.valuationMode = .itemized
-
-        var priced = Piece(itemType: .ring)
-        priced.pieceLabel = "ring"
-        priced.replacementValue = ReplacementValue(amount: 1000, marketNote: "")
-
-        let unpriced = Piece(itemType: .ring)
-
-        appraisal.pieces = [priced, unpriced]
-
-        XCTAssertEqual(appraisal.replacementValueLines, ["Replacement Value ring…….$1,000.00"])
+        XCTAssertTrue(appraisal.isReadyToExport)
     }
 }

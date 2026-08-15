@@ -18,6 +18,15 @@ final class SpeechRecognitionService: NSObject, ObservableObject {
 
     @Published private(set) var state: State = .idle
     @Published private(set) var liveTranscript: String = ""
+    /// Which caller (identified by its own UUID) is currently armed.
+    /// `state`/`liveTranscript` are necessarily shared — there's one
+    /// underlying recognizer — but every mic-enabled field owns its own ID
+    /// and only treats itself as "listening" when this matches. Without
+    /// this, every mounted field would think *it* was the one listening
+    /// the moment any single field started (they'd all key off the same
+    /// shared `state == .listening`), and all of them would copy in
+    /// whatever was just said — a real bug, not hypothetical.
+    @Published private(set) var activeListenerID: UUID?
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let audioEngine = AVAudioEngine()
@@ -59,7 +68,10 @@ final class SpeechRecognitionService: NSObject, ObservableObject {
 
     /// Starts listening for the field that was just tapped. Any previous
     /// session is torn down first so only one field is ever "armed."
-    func startListening() throws {
+    /// `listenerID` is the caller's own stable identity (see
+    /// `activeListenerID`) — pass a `UUID` you keep in `@State` for the
+    /// lifetime of that mic-enabled control.
+    func startListening(for listenerID: UUID) throws {
         stopListening()
 
         guard let recognizer, recognizer.isAvailable else {
@@ -86,6 +98,7 @@ final class SpeechRecognitionService: NSObject, ObservableObject {
         audioEngine.prepare()
         try audioEngine.start()
         liveTranscript = ""
+        activeListenerID = listenerID
         state = .listening
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
@@ -112,6 +125,7 @@ final class SpeechRecognitionService: NSObject, ObservableObject {
         request = nil
         task = nil
         state = .idle
+        activeListenerID = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }

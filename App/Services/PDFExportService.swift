@@ -30,13 +30,15 @@ enum PDFExportService {
             drawText(formattedDate(appraisal.date), in: rect(for: layout.date, page: page), maxFontSize: 14)
             drawText(appraisal.address, in: rect(for: layout.address, page: page), maxFontSize: 14)
             drawText(appraisal.descriptionText, in: rect(for: layout.itemDescription, page: page), maxFontSize: 13)
-            drawText(appraisal.replacementValueLines.joined(separator: "\n"), in: rect(for: layout.replacementValue, page: page), maxFontSize: 13)
+            drawText(appraisal.replacementValue.displayString, in: rect(for: layout.replacementValue, page: page), maxFontSize: 13)
 
             for (photo, slot) in zip(photos, layout.photoSlots) {
                 if let photo {
                     drawPhoto(photo, in: rect(for: slot, page: page))
                 }
             }
+
+            drawPerLine(in: rect(for: layout.perLine, page: page))
         }
 
         let filename = exportFilename(for: appraisal)
@@ -111,6 +113,25 @@ enum PDFExportService {
         (text as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
     }
 
+    /// A static "PER ________________" label + blank line — not bound to
+    /// any `Appraisal` field. The appraiser is always Tony, signing or
+    /// stamping this by hand after printing, so there's nothing to type;
+    /// the app just needs to leave the line for him.
+    private static func drawPerLine(in rect: CGRect) {
+        let label = "PER"
+        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 13)]
+        (label as NSString).draw(at: rect.origin, withAttributes: attributes)
+
+        let labelWidth = (label as NSString).size(withAttributes: attributes).width
+        let lineY = rect.minY + rect.height / 2
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: rect.minX + labelWidth + 8, y: lineY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: lineY))
+        path.lineWidth = 1
+        UIColor.darkGray.setStroke()
+        path.stroke()
+    }
+
     // MARK: - Helpers
 
     private static func rect(for normalized: CGRect, page: CGRect) -> CGRect {
@@ -128,11 +149,15 @@ enum PDFExportService {
         return formatter.string(from: date)
     }
 
+    /// "<Customer Name>-appraisal.pdf" — no timestamp. Exporting the same
+    /// customer's appraisal again overwrites rather than piling up
+    /// timestamped duplicates, which is what was actually wanted in
+    /// practice.
     private static func exportFilename(for appraisal: Appraisal) -> String {
         let safeName = appraisal.customerName
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .joined(separator: "-")
         let base = safeName.isEmpty ? "appraisal" : safeName
-        return "\(base)-\(Int(appraisal.date.timeIntervalSince1970)).pdf"
+        return "\(base)-appraisal.pdf"
     }
 }

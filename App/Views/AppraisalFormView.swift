@@ -1,10 +1,10 @@
 import SwiftUI
 
 /// Top-level screen implementing the plan's Core Flow: template preview
-/// with the four anchored fields + photo, guided description builder, and
-/// export. The template preview here is a scaled-down live view (not the
-/// print output itself) — `PDFExportService` renders the real full-size
-/// composite for printing.
+/// with the anchored fields + photos, a free-typed/dictated description,
+/// and export. The template preview here is a scaled-down live view (not
+/// the print output itself) — `PDFExportService` renders the real
+/// full-size composite for printing.
 struct AppraisalFormView: View {
     @StateObject private var viewModel = AppraisalViewModel()
     @State private var isShowingShareSheet = false
@@ -22,18 +22,10 @@ struct AppraisalFormView: View {
 
                     TapToSpeakField(title: "Address", text: $viewModel.appraisal.address, speech: viewModel.speech)
 
-                    AppraiserFieldView(appraiser: $viewModel.appraisal.appraiser, speech: viewModel.speech)
-
-                    ValuationSectionView(
-                        valuationMode: $viewModel.appraisal.valuationMode,
-                        combinedValue: $viewModel.appraisal.combinedReplacementValue
-                    )
+                    ReplacementValueSectionView(value: $viewModel.appraisal.replacementValue)
 
                     DescriptionBuilderView(
-                        pieces: $viewModel.appraisal.pieces,
-                        valuationMode: viewModel.appraisal.valuationMode,
                         descriptionText: $viewModel.appraisal.descriptionText,
-                        manuallyEdited: $viewModel.appraisal.descriptionManuallyEdited,
                         speech: viewModel.speech
                     )
 

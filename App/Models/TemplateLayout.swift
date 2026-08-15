@@ -33,15 +33,15 @@ struct TemplateLayout: Codable, Equatable {
     var photoOne: CGRect
     var photoTwo: CGRect
     var photoThree: CGRect
-    /// The "Replacement Value…….$X,XXX.00" line(s), immediately after the
-    /// description rather than pinned to the bottom of the page — stacked
-    /// top-to-bottom when the appraisal is itemized per piece.
+    /// The "Replacement Value…….$X,XXX.00" line, immediately after the
+    /// description rather than pinned to the bottom of the page.
     var replacementValue: CGRect
-
-    // Note: there is deliberately no `appraiser` region here anymore.
-    // Appraisal.appraiser (the "PER" line) is still collected in the app
-    // via AppraiserFieldView — it's just not drawn onto the printed
-    // template right now. See PDFExportService if/when it needs a spot.
+    /// The static "PER ________" stamp line at the very bottom, right
+    /// under the photos — Tony signs/stamps this by hand after printing.
+    /// Not bound to any `Appraisal` field: the appraiser is always Tony,
+    /// so there's nothing to type here, just a printed label + blank line
+    /// for the physical signature/stamp.
+    var perLine: CGRect
 
     /// The three photo slots in left-to-right order, for callers that want
     /// to iterate (the on-screen preview, PDF export) rather than name
@@ -68,7 +68,10 @@ struct TemplateLayout: Codable, Equatable {
         photoThree: CGRect(x: 0.65, y: 0.65, width: 0.26, height: 0.20),
         // Immediately after the description (not pinned to the page
         // bottom, which put it right up against the border).
-        replacementValue: CGRect(x: 0.09, y: 0.57, width: 0.82, height: 0.04)
+        replacementValue: CGRect(x: 0.09, y: 0.57, width: 0.82, height: 0.04),
+        // Right under the photo row (which ends at 0.85), well clear of
+        // the bottom border (~0.94).
+        perLine: CGRect(x: 0.09, y: 0.87, width: 0.45, height: 0.04)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay

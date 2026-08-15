@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// Editor for one "Replacement Value…….$X,XXX.00" figure — reused both for
-/// the appraisal-wide combined value and for each piece's own value in
-/// itemized mode. Amount is typed (a dollar figure isn't naturally
-/// dictated the way jewelry vocabulary is), with an optional market-note
-/// parenthetical, e.g. "1.08 carats ($4375/oz)".
+/// Editor for the appraisal's one "Replacement Value…….$X,XXX.00" figure.
+/// Amount is typed (a dollar figure isn't naturally dictated the way
+/// jewelry vocabulary is), with an optional market-note parenthetical,
+/// e.g. "1.08 carats ($4375/oz)".
 struct ReplacementValueFieldView: View {
     @Binding var value: ReplacementValue
 

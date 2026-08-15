@@ -9,8 +9,8 @@ final class AppraisalViewModel: ObservableObject {
     @Published var exportedPDFURL: URL?
     @Published var exportError: String?
 
-    init(itemType: ItemType = .ring) {
-        self.appraisal = Appraisal(itemType: itemType)
+    init() {
+        self.appraisal = Appraisal()
     }
 
     func requestPermissionsIfNeeded() {

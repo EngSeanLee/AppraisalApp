@@ -1,65 +1,86 @@
 import SwiftUI
 
-/// Hybrid description input from the plan: guided prompts for one or more
-/// pieces assemble into one editable text box. The box is the override
-/// surface — once the user types into it directly, it stops being
-/// regenerated from the checklist so their edits are never clobbered.
+/// The description, as one free-typed-or-dictated box — no guided fields.
+/// Earlier versions of this app broke the description into a multi-step
+/// guided checklist (metal, item style, stones, certification...); in
+/// practice that was way more form than Tony needed. The structure still
+/// exists, just moved to `DescriptionChecklist` running quietly in the
+/// background: soft reminders under the box, not fields he has to fill in.
+///
+/// Voice input here works differently from `TapToSpeakField`: each
+/// dictation session is *appended* to whatever's already there (with a
+/// space in between) rather than replacing it, since a description is
+/// naturally built up over several sentences/passes, typed and spoken
+/// interchangeably — unlike a short single-value field like the customer
+/// name.
 struct DescriptionBuilderView: View {
-    @Binding var pieces: [Piece]
-    let valuationMode: ValuationMode
     @Binding var descriptionText: String
-    @Binding var manuallyEdited: Bool
     @ObservedObject var speech: SpeechRecognitionService
 
+    @State private var fieldID = UUID()
+
+    private var isListening: Bool { speech.activeListenerID == fieldID }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Description").font(.title3.bold())
 
-            ForEach($pieces) { $piece in
-                PieceEditorView(
-                    piece: $piece,
-                    index: pieces.firstIndex(where: { $0.id == piece.id }) ?? 0,
-                    pieceCount: pieces.count,
-                    valuationMode: valuationMode,
-                    speech: speech,
-                    onRemove: { pieces.removeAll { $0.id == piece.id } }
-                )
-            }
-
-            Button {
-                pieces.append(Piece())
-            } label: {
-                Label("Add Another Piece", systemImage: "plus.circle")
-            }
-            .font(.subheadline)
-
-            Divider().padding(.vertical, 4)
-
-            HStack {
-                Text("Assembled Description").font(.headline)
-                Spacer()
-                if manuallyEdited {
-                    Button("Regenerate from checklist") {
-                        descriptionText = DescriptionTemplateEngine.assemble(pieces)
-                        manuallyEdited = false
-                    }
-                    .font(.caption)
-                }
-            }
-
             TextEditor(text: $descriptionText)
-                .frame(minHeight: 120)
+                .frame(minHeight: 160)
                 .padding(6)
                 .background(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.4)))
-                .onChange(of: descriptionText) { _, newValue in
-                    if newValue != DescriptionTemplateEngine.assemble(pieces) {
-                        manuallyEdited = true
+
+            if isListening {
+                Text(speech.liveTranscript.isEmpty ? "Listening…" : speech.liveTranscript)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.08)))
+            }
+
+            Button(action: toggleListening) {
+                Label(isListening ? "Stop" : "Add by Voice", systemImage: isListening ? "mic.fill" : "mic")
+            }
+            .buttonStyle(.bordered)
+            .tint(isListening ? .red : .accentColor)
+
+            let hints = DescriptionChecklist.missingHints(for: descriptionText)
+            if !hints.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(hints, id: \.self) { hint in
+                        Label(hint, systemImage: "lightbulb")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
+            }
         }
-        .onChange(of: pieces) { _, newValue in
-            guard !manuallyEdited else { return }
-            descriptionText = DescriptionTemplateEngine.assemble(newValue)
+        .onChange(of: speech.activeListenerID) { oldValue, newValue in
+            // Fires whether the session ended because the user tapped
+            // Stop, or the recognizer auto-stopped on its own (silence,
+            // error) — either way, commit whatever was captured exactly
+            // once, right here.
+            guard oldValue == fieldID, newValue != fieldID else { return }
+            commit(speech.liveTranscript)
+        }
+    }
+
+    private func toggleListening() {
+        if isListening {
+            speech.stopListening()
+        } else {
+            try? speech.startListening(for: fieldID)
+        }
+    }
+
+    private func commit(_ transcript: String) {
+        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if descriptionText.isEmpty || descriptionText.hasSuffix(" ") || descriptionText.hasSuffix("\n") {
+            descriptionText += trimmed
+        } else {
+            descriptionText += " " + trimmed
         }
     }
 }
