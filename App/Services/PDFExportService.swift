@@ -130,7 +130,17 @@ enum PDFExportService {
             .paragraphStyle: paragraphStyle
         ]
 
-        while fontSize > 6 {
+        // `>=`, not `>` — with `>`, the loop body never runs again once
+        // `fontSize` reaches 6 (the condition fails before re-testing), so
+        // `attributes` is left holding whatever size was last *tested and
+        // rejected* one iteration earlier. The intended 6pt floor was
+        // therefore never actually reachable: any text still too tall at
+        // 7pt silently drew at 7pt anyway and overflowed past `rect`'s
+        // bottom edge rather than shrinking further. Caught via
+        // `NoticeText.disclaimer` overflowing into the template border on
+        // a real device — every other caller's text happened to already
+        // fit by 7pt, so this never showed up before.
+        while fontSize >= 6 {
             attributes[.font] = UIFont.systemFont(ofSize: fontSize)
             let bounding = (text as NSString).boundingRect(
                 with: CGSize(width: rect.width, height: .greatestFiniteMagnitude),
@@ -148,10 +158,12 @@ enum PDFExportService {
     /// A static "PER ________________" label + blank line — not bound to
     /// any `Appraisal` field. The appraiser is always Tony, signing or
     /// stamping this by hand after printing, so there's nothing to type;
-    /// the app just needs to leave the line for him.
+    /// the app just needs to leave the line for him. Sized down from 13pt
+    /// (and `TemplateLayout.perLine` shrunk to match) per UAT feedback —
+    /// it was crowding the photo row above it.
     private static func drawPerLine(in rect: CGRect) {
         let label = "PER"
-        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 13)]
+        let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 11)]
         (label as NSString).draw(at: rect.origin, withAttributes: attributes)
 
         let labelWidth = (label as NSString).size(withAttributes: attributes).width

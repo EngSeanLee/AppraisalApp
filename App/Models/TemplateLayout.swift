@@ -61,9 +61,7 @@ struct TemplateLayout: Codable, Equatable {
         // 0.06 (6% of page height) as a block, preserving the original
         // gaps between fields — that's exactly how much vertical room the
         // logo move freed at the top (old logo bottom ~23.8% down, new
-        // logo bottom ~17.6% down). The reclaimed space at the *bottom*
-        // (perLine's old position through the border) is what makes room
-        // for `notice` below without crowding anything.
+        // logo bottom ~17.6% down).
         customerName: CGRect(x: 0.09, y: 0.21, width: 0.52, height: 0.035),
         date: CGRect(x: 0.66, y: 0.21, width: 0.25, height: 0.035),
         address: CGRect(x: 0.09, y: 0.26, width: 0.82, height: 0.035),
@@ -74,21 +72,32 @@ struct TemplateLayout: Codable, Equatable {
         // so each slot renders as an actual square on the US-Letter page,
         // not a portrait-cropped rectangle. Unaffected by the vertical
         // shift — width/height ratio (and therefore squareness) only
-        // depends on width.
-        photoOne: CGRect(x: 0.09, y: 0.59, width: 0.26, height: 0.20),
-        photoTwo: CGRect(x: 0.37, y: 0.59, width: 0.26, height: 0.20),
-        photoThree: CGRect(x: 0.65, y: 0.59, width: 0.26, height: 0.20),
+        // depends on width. Moved up slightly further (0.59 → 0.57) from
+        // the first UAT round to open up real breathing room above
+        // `perLine`, which was reading as crowded against the photo row.
+        photoOne: CGRect(x: 0.09, y: 0.57, width: 0.26, height: 0.20),
+        photoTwo: CGRect(x: 0.37, y: 0.57, width: 0.26, height: 0.20),
+        photoThree: CGRect(x: 0.65, y: 0.57, width: 0.26, height: 0.20),
         replacementValue: CGRect(x: 0.09, y: 0.51, width: 0.82, height: 0.04),
-        // Right under the photo row (which ends at 0.79) — right-aligned
-        // to the same right edge (0.91) every other field lines up
-        // against.
-        perLine: CGRect(x: 0.46, y: 0.81, width: 0.45, height: 0.04),
-        // Full width, in the space reclaimed by the logo move. Sized
-        // generously (0.065 ≈ 51pt on an 11" page) for ~900 characters of
-        // fine print at a 6–7pt shrink-to-fit — see `PDFExportService`'s
-        // notice draw call — with margin to spare before the border
-        // (~0.94).
-        notice: CGRect(x: 0.09, y: 0.865, width: 0.82, height: 0.065)
+        // Right-aligned to the same right edge (0.91) every other field
+        // lines up against. Shrunk (0.04 → 0.03 height, 13pt → 11pt font
+        // in `PDFExportService.drawPerLine`) and given real clearance from
+        // the photo row above (0.77 → 0.80, a 0.03 gap vs. the original
+        // 0.02) — both per UAT feedback that it was crowding the photos.
+        perLine: CGRect(x: 0.46, y: 0.80, width: 0.45, height: 0.03),
+        // Full width, in the space reclaimed by the logo move. Height
+        // (0.075 ≈ 59pt on an 11" page) is sized against an actual
+        // measurement of the disclaimer text, not eyeballed: it wraps to
+        // ~56pt at 6pt font in ~502pt of width, so this leaves a few
+        // points of slack at the shrink-to-fit floor `PDFExportService`
+        // uses. Ends at 0.92, leaving a real ~18pt (0.023) gap above the
+        // border's actual inner edge — measured directly off the
+        // letterhead artwork at y≈0.9427 — after the first UAT round
+        // found the notice text overflowing into the border (turned out
+        // to be a shrink-to-fit bug in `drawText`, now fixed, not just a
+        // sizing issue, but keeping a visible margin here too rather than
+        // cutting it exactly to the measured minimum).
+        notice: CGRect(x: 0.09, y: 0.845, width: 0.82, height: 0.075)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay
