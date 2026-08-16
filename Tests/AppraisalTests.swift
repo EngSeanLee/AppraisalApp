@@ -69,9 +69,13 @@ final class AppraisalTests: XCTestCase {
     }
 
     func test_isBlank_ignoresWhitespaceOnlyText() {
+        // `.whitespaces` (matching `isReadyToExport`'s existing
+        // convention, which `isBlank` deliberately follows) covers spaces
+        // and tabs -- not newlines, that's `.whitespacesAndNewlines` --
+        // so this only exercises what `.whitespaces` actually trims.
         var appraisal = Appraisal()
         appraisal.customerName = "   "
-        appraisal.address = "\n"
+        appraisal.address = "\t"
         XCTAssertTrue(appraisal.isBlank)
     }
 }
