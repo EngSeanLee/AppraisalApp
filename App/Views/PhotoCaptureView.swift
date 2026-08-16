@@ -5,7 +5,10 @@ import UIKit
 /// piece, and it's automatically placed and sized into a designated photo
 /// region on the template." Tapping offers a choice between the camera and
 /// the photo library — not every photo of a piece is taken fresh in the
-/// moment; some are already on the phone.
+/// moment; some are already on the phone. Every captured/picked photo goes
+/// through `PhotoCropView` before it's saved, so Tony can frame the piece
+/// tight in the slot rather than relying on whatever the source photo's
+/// framing happened to be.
 struct PhotoCaptureView: View {
     @Binding var photoFilename: String?
     var region: CGRect
@@ -13,6 +16,10 @@ struct PhotoCaptureView: View {
 
     @State private var isShowingSourcePicker = false
     @State private var pickerSourceType: UIImagePickerController.SourceType?
+    /// Set once the source picker hands back an image; drives the crop
+    /// sheet below. Cleared (back to `nil`) whether the crop is confirmed
+    /// or canceled.
+    @State private var imagePendingCrop: UIImage?
     @State private var cachedImage: UIImage?
 
     var body: some View {
@@ -49,13 +56,23 @@ struct PhotoCaptureView: View {
         }
         .sheet(item: $pickerSourceType) { sourceType in
             CameraCaptureView(sourceType: sourceType) { image in
-                if let filename = PhotoStorage.save(image) {
-                    if let old = photoFilename { PhotoStorage.delete(old) }
-                    photoFilename = filename
-                    cachedImage = image
-                }
+                // Hands off to the crop step (below) rather than saving
+                // straight away.
+                imagePendingCrop = image
             }
             .ignoresSafeArea()
+        }
+        .sheet(item: $imagePendingCrop) { image in
+            PhotoCropView(image: image) { cropped in
+                if let filename = PhotoStorage.save(cropped) {
+                    if let old = photoFilename { PhotoStorage.delete(old) }
+                    photoFilename = filename
+                    cachedImage = cropped
+                }
+                imagePendingCrop = nil
+            } onCancel: {
+                imagePendingCrop = nil
+            }
         }
         .onAppear(perform: loadCachedImage)
         .onChange(of: photoFilename) { _, _ in loadCachedImage() }
@@ -74,4 +91,12 @@ struct PhotoCaptureView: View {
 // own `UIImagePickerController.SourceType` isn't Identifiable.
 extension UIImagePickerController.SourceType: @retroactive Identifiable {
     public var id: Int { rawValue }
+}
+
+// Likewise for chaining straight into the crop sheet once a photo comes
+// back from the picker — this sheet only ever shows one photo at a time,
+// and `imagePendingCrop` is cleared (back to nil) as soon as that crop
+// step finishes either way, so object identity is a fine key here.
+extension UIImage: @retroactive Identifiable {
+    public var id: ObjectIdentifier { ObjectIdentifier(self) }
 }

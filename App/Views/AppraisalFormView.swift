@@ -8,6 +8,8 @@ import SwiftUI
 struct AppraisalFormView: View {
     @StateObject private var viewModel = AppraisalViewModel()
     @State private var isShowingShareSheet = false
+    @State private var isShowingSavedAppraisals = false
+    @State private var isShowingNewAppraisalConfirmation = false
     private let layout = TemplateLayout.default
 
     var body: some View {
@@ -30,14 +32,37 @@ struct AppraisalFormView: View {
                     )
 
                     exportButton
+                    newAppraisalButton
                 }
                 .padding()
             }
             .navigationTitle("Tony's Jewelry Appraisal")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isShowingSavedAppraisals = true
+                    } label: {
+                        Label("Past Appraisals", systemImage: "clock.arrow.circlepath")
+                    }
+                }
+            }
             .onAppear { viewModel.requestPermissionsIfNeeded() }
+            // Autosave: every field change (typed, dictated, a photo
+            // added...) persists immediately via `AppraisalStore`, so
+            // "look at old appraisals" (`SavedAppraisalsView`) never shows
+            // stale data and nothing is lost if the app is backgrounded
+            // mid-entry. `Appraisal` is already `Equatable`, so this only
+            // actually fires on a real change.
+            .onChange(of: viewModel.appraisal) { _, _ in viewModel.save() }
             .sheet(isPresented: $isShowingShareSheet) {
                 if let url = viewModel.exportedPDFURL {
                     ShareSheet(activityItems: [url])
+                }
+            }
+            .sheet(isPresented: $isShowingSavedAppraisals) {
+                SavedAppraisalsView { selected in
+                    viewModel.load(selected)
+                    isShowingSavedAppraisals = false
                 }
             }
             .alert("Couldn't export PDF", isPresented: exportErrorBinding) {
@@ -73,6 +98,33 @@ struct AppraisalFormView: View {
         }
         .buttonStyle(.borderedProminent)
         .disabled(!viewModel.appraisal.isReadyToExport)
+    }
+
+    /// Always available, not gated on having exported first — Tony might
+    /// also want to set aside a half-filled appraisal (already autosaved,
+    /// reachable later from Past Appraisals) and start the next one
+    /// without exporting. So this needs its own "are you sure" rather than
+    /// silently clearing the screen, since — unlike export — there's no
+    /// action that visibly confirms the current entry was saved.
+    private var newAppraisalButton: some View {
+        Button {
+            isShowingNewAppraisalConfirmation = true
+        } label: {
+            Label("New Appraisal", systemImage: "plus.circle")
+                .frame(maxWidth: .infinity)
+                .padding()
+        }
+        .buttonStyle(.bordered)
+        .confirmationDialog(
+            "Start a new appraisal?",
+            isPresented: $isShowingNewAppraisalConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Start New") { viewModel.startNew() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This one is already saved — find it again under Past Appraisals.")
+        }
     }
 
     private var exportErrorBinding: Binding<Bool> {

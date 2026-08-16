@@ -1,0 +1,7 @@
+name = "jewelry-appraisal-dictation-cleanup"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# ANTHROPIC_API_KEY (required) and APP_SHARED_SECRET (optional, see
+# ../App/Services/DictationCleanupService.swift) are secrets, not vars —
+# set them with `wrangler secret put <NAME>`, never here in plain text.

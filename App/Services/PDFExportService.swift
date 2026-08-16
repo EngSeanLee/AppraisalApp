@@ -45,12 +45,29 @@ enum PDFExportService {
             }
 
             drawPerLine(in: rect(for: layout.perLine, page: page))
+            // Small print, drawn last so it always sits on top — shares
+            // the same shrink-to-fit `drawText` every other field uses,
+            // down to a 6pt floor (see `NoticeText`/`TemplateLayout.notice`
+            // for why that's expected to be enough room).
+            drawText(NoticeText.disclaimer, in: rect(for: layout.notice, page: page), maxFontSize: 7)
         }
 
         let filename = exportFilename(for: appraisal)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        let url = exportedPDFsDirectory.appendingPathComponent(filename)
         try data.write(to: url)
         return url
+    }
+
+    /// Documents, not Application Support (where `PhotoStorage` and
+    /// `AppraisalStore` keep their private files) — this is the one thing
+    /// in the app deliberately made visible in the Files app
+    /// (`UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInBrowser` in
+    /// `project.yml`), so every exported PDF is sitting in Files → On My
+    /// iPhone → JewelryAppraisal right after export, with no extra save
+    /// step. `.documentDirectory` always exists on iOS, unlike Application
+    /// Support, so there's nothing to create here.
+    private static var exportedPDFsDirectory: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 
     // MARK: - Drawing
