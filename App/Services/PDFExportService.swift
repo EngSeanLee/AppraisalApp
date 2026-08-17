@@ -47,8 +47,8 @@ enum PDFExportService {
             drawPerLine(in: rect(for: layout.perLine, page: page))
             // Small print, drawn last so it always sits on top. Its own
             // `drawNotice` rather than plain `drawText` -- see that
-            // function for why (tighter paragraph spacing, hard clip).
-            drawNotice(NoticeText.disclaimer, in: rect(for: layout.notice, page: page), maxFontSize: 7)
+            // function for why (fixed size, not shrink-to-fit).
+            drawNotice(NoticeText.disclaimer, in: rect(for: layout.notice, page: page))
         }
 
         let filename = exportFilename(for: appraisal)
@@ -154,96 +154,54 @@ enum PDFExportService {
         (text as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
     }
 
-    /// Fourth attempt at fitting `NoticeText.disclaimer` (~1,225 characters,
-    /// two paragraphs) into the notice box. Rounds 1-3 all treated this as
-    /// a pure vertical-fit problem (reserve enough height, shrink the font,
-    /// clip as a backstop) and kept missing because the actual constraint
-    /// isn't a rectangle at all: `AppraisalTemplate.png`'s border has
-    /// decorative corner medallions that curve inward at the bottom-left
-    /// and bottom-right corners, past where the straight-edge margin
-    /// (measured for every other field) applies. Measured directly off the
-    /// artwork: the curve starts around y-fraction 0.897 (about a third of
-    /// the way up from `TemplateLayout.notice`'s bottom edge) and reaches
-    /// as far as x-fraction 0.127 from the left (and the mirror image from
-    /// the right) by the box's bottom edge -- well inside the 0.09/0.91
-    /// margin every other field uses safely. Round 3's taller box put the
-    /// notice's own bottom two corners right in that zone, so no amount of
-    /// vertical-only fixing was ever going to stop it landing on the
-    /// medallions.
+    /// Fifth pass at `NoticeText.disclaimer`. Round 4's
+    /// `NSTextContainer.exclusionPaths` rewrite correctly worked out
+    /// *where* the text needed to avoid, but had a real bug: `storage`
+    /// (the `NSTextStorage`) was a loop-local variable that only
+    /// `manager`/`container` escaped to the outer scope. `NSTextStorage`
+    /// is the strong owner in that object graph (storage -> retains ->
+    /// layoutManager -> retains -> textContainer); nothing kept the
+    /// storage itself alive once the loop exited, so by the time
+    /// `drawGlyphs` ran, the layout manager had lost the character data
+    /// backing it -- rendering nothing. Direct result: the notice went
+    /// from "on top of the border" to blank.
     ///
-    /// Fix: lay the text out with `NSTextContainer.exclusionPaths` instead
-    /// of plain `NSString` layout, so lines that fall in the bottom third
-    /// of the box actually narrow around both corner medallions instead of
-    /// running straight through them. `cornerExclusion` is sized a few
-    /// points larger than the measured curve (conservative on purpose --
-    /// slightly over-excluding costs a little width on the last couple of
-    /// lines; under-excluding is the bug being fixed). The hard clip to
-    /// `rect` from round 3 stays as a backstop underneath this.
+    /// Rather than patch that lifetime bug and keep the exclusion-path
+    /// machinery, simplifying per direct feedback: this text is a fixed
+    /// constant, not runtime-variable content, so there's nothing to
+    /// dynamically fit against -- pick one size, measure it for real, and
+    /// hardcode it instead of a shrink-to-fit loop.
     ///
-    /// Not verified against a real printed page (no device/printer in this
-    /// environment) -- corner measurements come from reading pixel values
-    /// off the actual letterhead asset, not a guess, but the on-device
-    /// render is still the real check.
-    private static func drawNotice(_ text: String, in rect: CGRect, maxFontSize: CGFloat) {
+    /// Measured directly (word-wrap simulated at this box's actual
+    /// ~502pt width): the disclaimer wraps to 55.9pt at 6pt, comfortably
+    /// inside this box's 79.2pt height. Because text draws top-down and
+    /// stops where it ends rather than filling the whole rect, the
+    /// actual printed block only reaches to about y-fraction 0.90 -- right
+    /// at the edge of where the letterhead's corner medallions start
+    /// curving in (~0.897, see `TemplateLayout.notice`), not deep inside
+    /// them the way a larger size would sit. (7pt measured 81.4pt --
+    /// barely taller than the box and sits well into the curve; 8pt
+    /// measured 102.2pt, ~23pt more than the box has, which would mean
+    /// silently clipping off part of Tony's signed-off wording to make it
+    /// fit -- worse than small type.)
+    ///
+    /// No shrink loop, no exclusion paths -- plain word-wrapped text at a
+    /// fixed size. The hard clip to `rect` stays as the one safety net,
+    /// though the margin above means it shouldn't ever actually trigger.
+    private static func drawNotice(_ text: String, in rect: CGRect) {
         guard !text.isEmpty else { return }
 
-        let collapsed = text.replacingOccurrences(of: "\n\n", with: "\n")
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineBreakMode = .byWordWrapping
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 6),
+            .paragraphStyle: paragraphStyle
+        ]
 
-        // Bottom third of the box, ~28pt in from each side -- covers the
-        // measured medallion curve (starts ~y=0.67*rect.height, reaches
-        // ~25pt in from each edge at the very bottom) with a few points of
-        // margin. Anchored to rect.height so it stays pinned to the box's
-        // actual bottom edge regardless of the tall measurement container
-        // used below.
-        let exclusionWidth: CGFloat = 28
-        let exclusionHeight: CGFloat = 30
-        let cornerExclusion: (CGFloat) -> UIBezierPath = { x in
-            UIBezierPath(rect: CGRect(x: x, y: rect.height - exclusionHeight, width: exclusionWidth, height: exclusionHeight))
-        }
-        let exclusionPaths = [cornerExclusion(0), cornerExclusion(rect.width - exclusionWidth)]
-
-        var fontSize = maxFontSize
-        var layoutManager = NSLayoutManager()
-        var textContainer = NSTextContainer()
-
-        while fontSize >= 6 {
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.lineBreakMode = .byWordWrapping
-            paragraphStyle.lineHeightMultiple = 0.92
-            paragraphStyle.paragraphSpacing = fontSize * 0.5
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: fontSize),
-                .paragraphStyle: paragraphStyle
-            ]
-
-            let storage = NSTextStorage(string: collapsed, attributes: attributes)
-            let manager = NSLayoutManager()
-            storage.addLayoutManager(manager)
-            // Tall measurement container so the full text always lays out
-            // (no truncation to measure against) -- `exclusionPaths` still
-            // applies at its fixed y-offset from the top, so the corner
-            // narrowing is measured the same way it'll actually draw.
-            let container = NSTextContainer(size: CGSize(width: rect.width, height: .greatestFiniteMagnitude))
-            container.lineFragmentPadding = 0
-            container.exclusionPaths = exclusionPaths
-            manager.addTextContainer(container)
-            manager.glyphRange(for: container) // force layout
-
-            layoutManager = manager
-            textContainer = container
-
-            if manager.usedRect(for: container).height <= rect.height { break }
-            fontSize -= 1
-        }
-
-        // Backstop: whatever the loop above landed on, never let the
-        // actual draw paint outside `rect` -- if the exclusion measurement
-        // is still wrong somehow, worst case is a clipped line, not text
-        // on the medallions or the border again.
         let context = UIGraphicsGetCurrentContext()
         context?.saveGState()
         UIBezierPath(rect: rect).addClip()
-        layoutManager.drawGlyphs(forGlyphRange: layoutManager.glyphRange(for: textContainer), at: rect.origin)
+        (text as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
         context?.restoreGState()
     }
 
