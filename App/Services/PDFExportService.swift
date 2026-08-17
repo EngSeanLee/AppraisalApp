@@ -47,7 +47,9 @@ enum PDFExportService {
             drawPerLine(in: rect(for: layout.perLine, page: page))
             // Small print, drawn last so it always sits on top. Its own
             // `drawNotice` rather than plain `drawText` -- see that
-            // function for why (tighter paragraph spacing, hard clip).
+            // function for why (shrink-to-fit measured on-device, same
+            // idea as `drawText`, but without `drawText`'s centered-fit
+            // framing since this is always full-width body text).
             drawNotice(NoticeText.disclaimer, in: rect(for: layout.notice, page: page), maxFontSize: 7)
         }
 
@@ -116,8 +118,12 @@ enum PDFExportService {
 
     /// Draws `text` centered-fit within `rect`, shrinking the font until it
     /// fits — the PDF equivalent of the on-screen `minimumScaleFactor`
-    /// behavior called for in the plan's tech stack notes.
-    private static func drawText(_ text: String, in rect: CGRect, maxFontSize: CGFloat) {
+    /// behavior called for in the plan's tech stack notes. `clipToBounds`
+    /// (off by default; `drawNotice` turns it on) hard-clips the draw to
+    /// `rect` as a backstop for text that still doesn't fit at the 6pt
+    /// floor — every other caller's text reliably does fit by then, so
+    /// this hasn't needed to matter for them.
+    private static func drawText(_ text: String, in rect: CGRect, maxFontSize: CGFloat, clipToBounds: Bool = false) {
         guard !text.isEmpty else { return }
 
         let paragraphStyle = NSMutableParagraphStyle()
@@ -151,100 +157,58 @@ enum PDFExportService {
             fontSize -= 1
         }
 
+        let context = UIGraphicsGetCurrentContext()
+        if clipToBounds {
+            context?.saveGState()
+            UIBezierPath(rect: rect).addClip()
+        }
         (text as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
+        if clipToBounds {
+            context?.restoreGState()
+        }
     }
 
-    /// Fourth attempt at fitting `NoticeText.disclaimer` (~1,225 characters,
-    /// two paragraphs) into the notice box. Rounds 1-3 all treated this as
-    /// a pure vertical-fit problem (reserve enough height, shrink the font,
-    /// clip as a backstop) and kept missing because the actual constraint
-    /// isn't a rectangle at all: `AppraisalTemplate.png`'s border has
-    /// decorative corner medallions that curve inward at the bottom-left
-    /// and bottom-right corners, past where the straight-edge margin
-    /// (measured for every other field) applies. Measured directly off the
-    /// artwork: the curve starts around y-fraction 0.897 (about a third of
-    /// the way up from `TemplateLayout.notice`'s bottom edge) and reaches
-    /// as far as x-fraction 0.127 from the left (and the mirror image from
-    /// the right) by the box's bottom edge -- well inside the 0.09/0.91
-    /// margin every other field uses safely. Round 3's taller box put the
-    /// notice's own bottom two corners right in that zone, so no amount of
-    /// vertical-only fixing was ever going to stop it landing on the
-    /// medallions.
+    /// Sixth pass at `NoticeText.disclaimer`. Round 5 fixed the blank-text
+    /// bug (a dangling `NSTextStorage`) but introduced a different
+    /// problem: it hardcoded a fixed 6pt based on a height measured
+    /// *offline*, on this Windows dev environment, using Arial as a
+    /// stand-in for the system font -- there's no Mac/iOS runtime here to
+    /// check against. That estimate (55.9pt) matched round 3's own
+    /// on-device claim almost exactly, which is why it seemed trustworthy,
+    /// but the notice still overflowed dramatically on a real device.
+    /// Most likely explanation: iOS's system font doesn't scale the same
+    /// way Arial does at very small sizes, so the estimate undershot the
+    /// real rendered height by a wide enough margin to land back on the
+    /// corner medallions -- exactly what rounds 1-4 kept doing for
+    /// different reasons.
     ///
-    /// Fix: lay the text out with `NSTextContainer.exclusionPaths` instead
-    /// of plain `NSString` layout, so lines that fall in the bottom third
-    /// of the box actually narrow around both corner medallions instead of
-    /// running straight through them. `cornerExclusion` is sized a few
-    /// points larger than the measured curve (conservative on purpose --
-    /// slightly over-excluding costs a little width on the last couple of
-    /// lines; under-excluding is the bug being fixed). The hard clip to
-    /// `rect` from round 3 stays as a backstop underneath this.
+    /// The fix isn't a better estimate (there's no way to produce a
+    /// trustworthy one from this environment) -- it's two changes that
+    /// don't depend on the estimate being right:
     ///
-    /// Not verified against a real printed page (no device/printer in this
-    /// environment) -- corner measurements come from reading pixel values
-    /// off the actual letterhead asset, not a guess, but the on-device
-    /// render is still the real check.
+    /// 1. Real on-device measurement, restored. This is back to plain
+    ///    `drawText` (just with `clipToBounds` on) rather than a separate
+    ///    hardcoded-size implementation -- its `boundingRect` shrink-to-fit
+    ///    runs on the actual device at export time, against the actual
+    ///    font that's about to draw. Unlike a number computed ahead of
+    ///    time on different hardware, that can't be wrong about what the
+    ///    real font needs.
+    /// 2. `TemplateLayout.notice` no longer tries to use the space next to
+    ///    the corner medallions at all -- it ends at y=0.89, safely above
+    ///    where they start curving in (~0.897), instead of relying on
+    ///    hitting a font size small enough to stay clear. That's true
+    ///    regardless of exactly how tall the real font renders.
+    ///
+    /// Together with the hard clip (kept from round 3): even if the
+    /// shortened wording still doesn't fit at the 6pt floor on some
+    /// device, the worst case is a clipped last line -- which lands above
+    /// the medallions, not on them, because the box itself never reaches
+    /// that far down. `NoticeText.disclaimer` was also shortened
+    /// (~1,225 -> ~585 characters, same substance) specifically to give
+    /// this real margin rather than needing every measurement to land
+    /// exactly right.
     private static func drawNotice(_ text: String, in rect: CGRect, maxFontSize: CGFloat) {
-        guard !text.isEmpty else { return }
-
-        let collapsed = text.replacingOccurrences(of: "\n\n", with: "\n")
-
-        // Bottom third of the box, ~28pt in from each side -- covers the
-        // measured medallion curve (starts ~y=0.67*rect.height, reaches
-        // ~25pt in from each edge at the very bottom) with a few points of
-        // margin. Anchored to rect.height so it stays pinned to the box's
-        // actual bottom edge regardless of the tall measurement container
-        // used below.
-        let exclusionWidth: CGFloat = 28
-        let exclusionHeight: CGFloat = 30
-        let cornerExclusion: (CGFloat) -> UIBezierPath = { x in
-            UIBezierPath(rect: CGRect(x: x, y: rect.height - exclusionHeight, width: exclusionWidth, height: exclusionHeight))
-        }
-        let exclusionPaths = [cornerExclusion(0), cornerExclusion(rect.width - exclusionWidth)]
-
-        var fontSize = maxFontSize
-        var layoutManager = NSLayoutManager()
-        var textContainer = NSTextContainer()
-
-        while fontSize >= 6 {
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.lineBreakMode = .byWordWrapping
-            paragraphStyle.lineHeightMultiple = 0.92
-            paragraphStyle.paragraphSpacing = fontSize * 0.5
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: fontSize),
-                .paragraphStyle: paragraphStyle
-            ]
-
-            let storage = NSTextStorage(string: collapsed, attributes: attributes)
-            let manager = NSLayoutManager()
-            storage.addLayoutManager(manager)
-            // Tall measurement container so the full text always lays out
-            // (no truncation to measure against) -- `exclusionPaths` still
-            // applies at its fixed y-offset from the top, so the corner
-            // narrowing is measured the same way it'll actually draw.
-            let container = NSTextContainer(size: CGSize(width: rect.width, height: .greatestFiniteMagnitude))
-            container.lineFragmentPadding = 0
-            container.exclusionPaths = exclusionPaths
-            manager.addTextContainer(container)
-            manager.glyphRange(for: container) // force layout
-
-            layoutManager = manager
-            textContainer = container
-
-            if manager.usedRect(for: container).height <= rect.height { break }
-            fontSize -= 1
-        }
-
-        // Backstop: whatever the loop above landed on, never let the
-        // actual draw paint outside `rect` -- if the exclusion measurement
-        // is still wrong somehow, worst case is a clipped line, not text
-        // on the medallions or the border again.
-        let context = UIGraphicsGetCurrentContext()
-        context?.saveGState()
-        UIBezierPath(rect: rect).addClip()
-        layoutManager.drawGlyphs(forGlyphRange: layoutManager.glyphRange(for: textContainer), at: rect.origin)
-        context?.restoreGState()
+        drawText(text, in: rect, maxFontSize: maxFontSize, clipToBounds: true)
     }
 
     /// A static "PER ________________" label + blank line — not bound to
