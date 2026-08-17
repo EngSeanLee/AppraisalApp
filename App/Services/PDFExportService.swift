@@ -45,11 +45,10 @@ enum PDFExportService {
             }
 
             drawPerLine(in: rect(for: layout.perLine, page: page))
-            // Small print, drawn last so it always sits on top — shares
-            // the same shrink-to-fit `drawText` every other field uses,
-            // down to a 6pt floor (see `NoticeText`/`TemplateLayout.notice`
-            // for why that's expected to be enough room).
-            drawText(NoticeText.disclaimer, in: rect(for: layout.notice, page: page), maxFontSize: 7)
+            // Small print, drawn last so it always sits on top. Its own
+            // `drawNotice` rather than plain `drawText` -- see that
+            // function for why (tighter paragraph spacing, hard clip).
+            drawNotice(NoticeText.disclaimer, in: rect(for: layout.notice, page: page), maxFontSize: 7)
         }
 
         let filename = exportFilename(for: appraisal)
@@ -153,6 +152,73 @@ enum PDFExportService {
         }
 
         (text as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
+    }
+
+    /// Third attempt at fitting `NoticeText.disclaimer` (~1,225 characters,
+    /// two paragraphs) into the notice box. Round 1 didn't reserve real
+    /// space for it at all; round 2 fixed a shrink-to-fit off-by-one but
+    /// still overflowed in practice, because the box was sized off a
+    /// boundingRect estimate with only ~3pt of slack over the estimated
+    /// text height at the 6pt floor -- any difference between that estimate
+    /// and real on-device font metrics (or just the estimate being wrong)
+    /// blew straight through it, and plain `drawText` doesn't clip, so it
+    /// bled into the border. This version reclaims real vertical space
+    /// instead of hoping the estimate holds, and backstops the estimate
+    /// with a hard clip so a bad estimate can never bleed past the box
+    /// again -- worst case is a clipped last line, not text on the border.
+    ///
+    /// Space reclaimed vs. plain `drawText`:
+    /// - `TemplateLayout.notice` itself is ~33% taller (see its comment).
+    /// - The source text's paragraph break is a literal blank line (a full
+    ///   line height of empty space at whatever font size gets picked).
+    ///   Collapsed to a single `\n` here and replaced with
+    ///   `paragraphSpacing` sized as half a line, not a whole one --
+    ///   NoticeText's actual wording is untouched, only how the existing
+    ///   break renders.
+    /// - `lineHeightMultiple` tightened to 0.92 -- the system font's
+    ///   default leading is generous at these sizes and was never load-
+    ///   bearing for legibility here.
+    ///
+    /// Not verified against a real printed page (no device/printer in this
+    /// environment to check against) -- the math above should land it
+    /// comfortably, and the clip means even a wrong estimate degrades to a
+    /// clipped line rather than a border-crossing one.
+    private static func drawNotice(_ text: String, in rect: CGRect, maxFontSize: CGFloat) {
+        guard !text.isEmpty else { return }
+
+        let collapsed = text.replacingOccurrences(of: "\n\n", with: "\n")
+
+        var fontSize = maxFontSize
+        var attributes: [NSAttributedString.Key: Any] = [:]
+
+        while fontSize >= 6 {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.lineBreakMode = .byWordWrapping
+            paragraphStyle.lineHeightMultiple = 0.92
+            paragraphStyle.paragraphSpacing = fontSize * 0.5
+            attributes = [
+                .font: UIFont.systemFont(ofSize: fontSize),
+                .paragraphStyle: paragraphStyle
+            ]
+            let bounding = (collapsed as NSString).boundingRect(
+                with: CGSize(width: rect.width, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin],
+                attributes: attributes,
+                context: nil
+            )
+            if bounding.height <= rect.height { break }
+            fontSize -= 1
+        }
+
+        // Backstop: whatever the estimate above landed on, never let the
+        // actual draw paint outside `rect` -- this is what makes "still
+        // doesn't fit" impossible to repeat a fourth time, independent of
+        // whether the font-metric math above is exactly right.
+        let context = UIGraphicsGetCurrentContext()
+        context?.saveGState()
+        UIBezierPath(rect: rect).addClip()
+        (collapsed as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
+        context?.restoreGState()
     }
 
     /// A static "PER ________________" label + blank line — not bound to

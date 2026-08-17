@@ -46,9 +46,10 @@ struct TemplateLayout: Codable, Equatable {
     var perLine: CGRect
     /// The fixed-wording insurance/liability disclaimer (`NoticeText`),
     /// full width, in small type at the very bottom — below `perLine`,
-    /// still comfortably clear of the border. `PDFExportService` draws it
-    /// shrink-to-fit the same way every other field is drawn, down to a
-    /// 6pt floor.
+    /// still comfortably clear of the border. Drawn by
+    /// `PDFExportService.drawNotice`, a shrink-to-fit down to a 6pt floor
+    /// like every other field, but with tighter paragraph spacing and a
+    /// hard clip to this rect so it can never bleed past it.
     var notice: CGRect
 
     /// The three photo slots in left-to-right order, for callers that want
@@ -85,19 +86,21 @@ struct TemplateLayout: Codable, Equatable {
         // the photo row above (0.77 → 0.80, a 0.03 gap vs. the original
         // 0.02) — both per UAT feedback that it was crowding the photos.
         perLine: CGRect(x: 0.46, y: 0.80, width: 0.45, height: 0.03),
-        // Full width, in the space reclaimed by the logo move. Height
-        // (0.075 ≈ 59pt on an 11" page) is sized against an actual
-        // measurement of the disclaimer text, not eyeballed: it wraps to
-        // ~56pt at 6pt font in ~502pt of width, so this leaves a few
-        // points of slack at the shrink-to-fit floor `PDFExportService`
-        // uses. Ends at 0.92, leaving a real ~18pt (0.023) gap above the
-        // border's actual inner edge — measured directly off the
-        // letterhead artwork at y≈0.9427 — after the first UAT round
-        // found the notice text overflowing into the border (turned out
-        // to be a shrink-to-fit bug in `drawText`, now fixed, not just a
-        // sizing issue, but keeping a visible margin here too rather than
-        // cutting it exactly to the measured minimum).
-        notice: CGRect(x: 0.09, y: 0.845, width: 0.82, height: 0.075)
+        // Full width, in the space reclaimed by the logo move. Third pass
+        // at this box: round 2 sized it to ~59pt against a boundingRect
+        // estimate that left only ~3pt of slack over the estimated text
+        // height at the 6pt floor, and it still overflowed in practice.
+        // Rather than re-estimate more carefully and hope, this pass
+        // just takes more of the actual available room: starts right at
+        // perLine's bottom edge (0.83 — safe to abut, perLine's own
+        // visible stroke sits at its vertical center, ~0.815, well clear
+        // of this box) and ends at 0.93, ~10pt (0.0127) above the
+        // letterhead border's measured inner edge (y≈0.9427). That's
+        // ~79pt of height, about a third more than round 2 had.
+        // `PDFExportService.drawNotice` also now hard-clips to this rect,
+        // so even if this margin turns out wrong too, the notice can only
+        // ever be clipped, never bleed onto the border again.
+        notice: CGRect(x: 0.09, y: 0.83, width: 0.82, height: 0.10)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay
