@@ -37,6 +37,15 @@ targets:
         NSMicrophoneUsageDescription: "Used to listen while you speak an appraisal field."
         NSCameraUsageDescription: "Used to photograph the jewelry piece for the appraisal."
         NSPhotoLibraryAddUsageDescription: "Used to save the exported appraisal PDF."
+        # Exposes the app's Documents folder in the Files app (On My
+        # iPhone → JewelryAppraisal) — that's where PDFExportService
+        # writes every exported appraisal, so it's always sitting there
+        # right after export with no extra save step. Everything else
+        # (photos, saved-appraisal records) deliberately lives in
+        # Application Support instead, which these two keys do NOT expose
+        # — see PhotoStorage.swift / AppraisalStore.swift.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInBrowser: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tonysjewelry.appraisal

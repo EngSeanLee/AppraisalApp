@@ -76,7 +76,8 @@ struct TemplateBackgroundView: View {
             Slot(label: "Photo 1", rect: layout.photoOne),
             Slot(label: "Photo 2", rect: layout.photoTwo),
             Slot(label: "Photo 3", rect: layout.photoThree),
-            Slot(label: "PER (stamp line)", rect: layout.perLine)
+            Slot(label: "PER (stamp line)", rect: layout.perLine),
+            Slot(label: "Notice (small print)", rect: layout.notice)
         ]
     }
 }

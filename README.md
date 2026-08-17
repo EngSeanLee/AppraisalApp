@@ -54,15 +54,37 @@ signal, checked on every push.
     surfaces them as small non-blocking hints under the box. Never blocks
     export, never forces structured entry.
   - `PhotoCaptureView` / `CameraCaptureView` — three photo slots side by
-    side, spanning the template's full width, roughly square.
+    side, spanning the template's full width, roughly square. Every
+    captured/picked photo goes through `PhotoCropView` (drag to pan,
+    pinch to zoom, fixed 1:1 crop) before it's saved.
   - `PDFExportService` — composites everything into a single-page,
     US-Letter PDF via `UIGraphicsPDFRenderer`, including a static
-    "PER ________" stamp line at the bottom for Tony to sign/stamp by
-    hand (the appraiser is always him — nothing here is app data, it's
-    just a printed label + blank line). Export filename is always
-    `<Customer Name>-appraisal.pdf`.
-- **Unit tests** (`Tests/`) for Replacement Value formatting and export
-  readiness, and for `DescriptionChecklist`'s hint logic.
+    "PER ________" stamp line for Tony to sign/stamp by hand (the
+    appraiser is always him — nothing here is app data, it's just a
+    printed label + blank line) and the fixed `NoticeText` insurance
+    disclaimer in small print at the bottom. Export filename is always
+    `<Customer Name>-appraisal.pdf`, and every export is written straight
+    into the app's Documents folder — which `UIFileSharingEnabled` /
+    `LSSupportsOpeningDocumentsInBrowser` (see `project.yml`) expose in
+    the Files app, so it's sitting in Files → On My iPhone →
+    JewelryAppraisal right after export with no extra save step.
+  - `AppraisalStore` / `SavedAppraisalsView` — every appraisal autosaves
+    (as a small JSON record in Application Support, private — not the
+    Documents folder the PDFs live in) as soon as any field changes.
+    "Past Appraisals" (toolbar button on the main screen) lists them,
+    most recently edited first, to reopen and edit or just look back at.
+    "New Appraisal" clears the form for the next customer without losing
+    the one just finished.
+  - `DictationCleanupService` — the description box's dictation now runs
+    the raw on-device transcript through Claude (Haiku 4.5, via a small
+    Cloudflare Worker proxy — see `/worker`) before appending it, to fix
+    run-on sentences and filler words rather than dropping raw speech-to-
+    text straight into the appraisal. Falls back to the raw transcript if
+    the network/Worker isn't reachable. **Needs the Worker deployed and
+    its URL filled in — see "Still needs you" below.**
+- **Unit tests** (`Tests/`) for Replacement Value formatting, export
+  readiness, `Appraisal.isBlank`, `AppraisalStore`'s save/load/delete, and
+  `DescriptionChecklist`'s hint logic.
 - **CI** (`.github/workflows/ios-build.yml`) — builds and runs tests on a
   macOS GitHub Actions runner on every push, no signing required (Simulator
   build only).
@@ -112,20 +134,33 @@ hardware, or your dad's paperwork.
    no Mac needed. Required before TestFlight or the App Store (not before
    on-device testing — see "Testing on your phone for free" above).
 
-2. **Keep testing on the real device and reporting back.** Sideloaded via
-   Sideloadly and already iterated once on real feedback (mic behavior,
-   the fields above). `TemplateLayout.default`'s positions are still
-   eyeballed, not measured — keep flagging anything that overlaps the
-   border or looks off once printed.
+2. **Deploy the dictation-cleanup Worker and fill in its URL.** See
+   `/worker/README.md` for the full walkthrough — needs a (free) Cloudflare
+   account and a separate Anthropic API key from console.anthropic.com
+   (pay-as-you-go, but realistically cents for how much one appraiser
+   dictates). Once deployed, paste the Worker's URL into the `endpoint`
+   constant in `App/Services/DictationCleanupService.swift`. Without this,
+   dictation still works exactly as before — cleanup just silently falls
+   back to the raw transcript.
 
-3. **Try `DescriptionChecklist`'s hints against how your dad actually
+3. **Keep testing on the real device and reporting back.** Sideloaded via
+   Sideloadly and already iterated once on real feedback (mic behavior,
+   the fields above). This round moved the letterhead logo up in the
+   artwork itself and shifted every field below it to match, added the
+   notice disclaimer at the bottom, and added the photo crop step —
+   `TemplateLayout.default`'s positions and `PhotoCropView`'s crop frame
+   are still eyeballed/computed, not seen on a real screen or printer.
+   Keep flagging anything that overlaps the border, looks cramped, or
+   feels off in the crop gesture once someone can actually see it.
+
+4. **Try `DescriptionChecklist`'s hints against how your dad actually
    writes descriptions.** It's a loose keyword/regex heuristic (metal
    mentioned, a weight mentioned, stone grading if a stone is mentioned),
    not tuned against real transcripts yet — see `App/Services/
    DescriptionChecklist.swift`. Tell me what it misses or nags about
    unnecessarily once you've used it for real.
 
-4. **TestFlight setup** once you have the Developer account — internal
+5. **TestFlight setup** once you have the Developer account — internal
    testing group, his Apple ID invited, `DEVELOPMENT_TEAM` filled in in
    `project.yml`. Codemagic or GitHub Actions can push to TestFlight once
    signing secrets exist; the current workflow only builds for the

@@ -42,6 +42,12 @@ struct ReplacementValue: Codable, Equatable {
 /// `TemplateLayout.perLine` / `PDFExportService` — since it's always Tony,
 /// signed/stamped by hand after printing.
 struct Appraisal: Codable, Equatable {
+    /// Stable identity for `AppraisalStore` — generated once when the
+    /// appraisal is created and unaffected by edits, so saving the same
+    /// appraisal again overwrites its own file instead of creating a new
+    /// one, and `SavedAppraisalsView` can reopen the right one.
+    var id: UUID = UUID()
+
     var customerName: String = ""
     var date: Date = .now
     var address: String = ""
@@ -65,5 +71,17 @@ struct Appraisal: Codable, Equatable {
         !customerName.trimmingCharacters(in: .whitespaces).isEmpty
             && !descriptionText.trimmingCharacters(in: .whitespaces).isEmpty
             && photoFilenames.contains { $0 != nil }
+    }
+
+    /// True for an appraisal nobody has touched yet — the state
+    /// `AppraisalViewModel.startNew()` produces. `AppraisalStore` skips
+    /// saving these so starting fresh (or just launching the app) doesn't
+    /// leave empty entries cluttering the saved-appraisals list.
+    var isBlank: Bool {
+        customerName.trimmingCharacters(in: .whitespaces).isEmpty
+            && address.trimmingCharacters(in: .whitespaces).isEmpty
+            && descriptionText.trimmingCharacters(in: .whitespaces).isEmpty
+            && replacementValue.isEmpty
+            && !photoFilenames.contains { $0 != nil }
     }
 }

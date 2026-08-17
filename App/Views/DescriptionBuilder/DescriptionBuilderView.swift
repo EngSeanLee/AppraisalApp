@@ -12,12 +12,17 @@ import SwiftUI
 /// space in between) rather than replacing it, since a description is
 /// naturally built up over several sentences/passes, typed and spoken
 /// interchangeably — unlike a short single-value field like the customer
-/// name.
+/// name. Before appending, the raw transcript is run through
+/// `DictationCleanupService` (a cloud LLM call, see its doc comment) to
+/// fix run-ons and filler words — on-device dictation alone tends to
+/// produce exactly the kind of comma-splice wall of text an appraisal
+/// shouldn't read like.
 struct DescriptionBuilderView: View {
     @Binding var descriptionText: String
     @ObservedObject var speech: SpeechRecognitionService
 
     @State private var fieldID = UUID()
+    @State private var isCleaningUp = false
 
     private var isListening: Bool { speech.activeListenerID == fieldID }
 
@@ -39,11 +44,21 @@ struct DescriptionBuilderView: View {
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.08)))
             }
 
+            if isCleaningUp {
+                HStack(spacing: 6) {
+                    ProgressView()
+                    Text("Cleaning up…")
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+
             Button(action: toggleListening) {
                 Label(isListening ? "Stop" : "Add by Voice", systemImage: isListening ? "mic.fill" : "mic")
             }
             .buttonStyle(.bordered)
             .tint(isListening ? .red : .accentColor)
+            .disabled(isCleaningUp)
 
             let hints = DescriptionChecklist.missingHints(for: descriptionText)
             if !hints.isEmpty {
@@ -62,7 +77,8 @@ struct DescriptionBuilderView: View {
             // error) — either way, commit whatever was captured exactly
             // once, right here.
             guard oldValue == fieldID, newValue != fieldID else { return }
-            commit(speech.liveTranscript)
+            let transcript = speech.liveTranscript
+            Task { await commit(transcript) }
         }
     }
 
@@ -74,13 +90,19 @@ struct DescriptionBuilderView: View {
         }
     }
 
-    private func commit(_ transcript: String) {
+    @MainActor
+    private func commit(_ transcript: String) async {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+
+        isCleaningUp = true
+        let cleaned = await DictationCleanupService.cleanUp(trimmed)
+        isCleaningUp = false
+
         if descriptionText.isEmpty || descriptionText.hasSuffix(" ") || descriptionText.hasSuffix("\n") {
-            descriptionText += trimmed
+            descriptionText += cleaned
         } else {
-            descriptionText += " " + trimmed
+            descriptionText += " " + cleaned
         }
     }
 }

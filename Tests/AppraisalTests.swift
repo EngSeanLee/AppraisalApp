@@ -44,4 +44,38 @@ final class AppraisalTests: XCTestCase {
 
         XCTAssertTrue(appraisal.isReadyToExport)
     }
+
+    // MARK: - Appraisal.isBlank
+
+    func test_isBlank_trueForFreshAppraisal() {
+        XCTAssertTrue(Appraisal().isBlank)
+    }
+
+    func test_isBlank_falseOnceAnyFieldIsSet() {
+        var name = Appraisal(); name.customerName = "Jane Smith"
+        XCTAssertFalse(name.isBlank)
+
+        var address = Appraisal(); address.address = "123 Main St"
+        XCTAssertFalse(address.isBlank)
+
+        var description = Appraisal(); description.descriptionText = "A ring."
+        XCTAssertFalse(description.isBlank)
+
+        var value = Appraisal(); value.replacementValue = ReplacementValue(amount: 100)
+        XCTAssertFalse(value.isBlank)
+
+        var photo = Appraisal(); photo.photoFilenames[1] = "photo.jpg"
+        XCTAssertFalse(photo.isBlank)
+    }
+
+    func test_isBlank_ignoresWhitespaceOnlyText() {
+        // `.whitespaces` (matching `isReadyToExport`'s existing
+        // convention, which `isBlank` deliberately follows) covers spaces
+        // and tabs -- not newlines, that's `.whitespacesAndNewlines` --
+        // so this only exercises what `.whitespaces` actually trims.
+        var appraisal = Appraisal()
+        appraisal.customerName = "   "
+        appraisal.address = "\t"
+        XCTAssertTrue(appraisal.isBlank)
+    }
 }
