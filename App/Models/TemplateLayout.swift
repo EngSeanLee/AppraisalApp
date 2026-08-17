@@ -46,10 +46,12 @@ struct TemplateLayout: Codable, Equatable {
     var perLine: CGRect
     /// The fixed-wording insurance/liability disclaimer (`NoticeText`),
     /// full width, in small type at the very bottom — below `perLine`,
-    /// still comfortably clear of the border. Drawn by
-    /// `PDFExportService.drawNotice`, a shrink-to-fit down to a 6pt floor
-    /// like every other field, but with tighter paragraph spacing and a
-    /// hard clip to this rect so it can never bleed past it.
+    /// positioned to stay entirely clear of the letterhead's curved
+    /// corner medallions rather than relying on font size to dodge them
+    /// (see this property's own comment below for why). Drawn by
+    /// `PDFExportService.drawNotice`, an on-device shrink-to-fit down to
+    /// a 6pt floor like `drawText`, with a hard clip to this rect as a
+    /// backstop.
     var notice: CGRect
 
     /// The three photo slots in left-to-right order, for callers that want
@@ -86,26 +88,30 @@ struct TemplateLayout: Codable, Equatable {
         // the photo row above (0.77 → 0.80, a 0.03 gap vs. the original
         // 0.02) — both per UAT feedback that it was crowding the photos.
         perLine: CGRect(x: 0.46, y: 0.80, width: 0.45, height: 0.03),
-        // Full width, in the space reclaimed by the logo move. Box itself
-        // (0.83–0.93, ~79pt) is unchanged since round 3: starts at
-        // perLine's bottom edge, ends ~10pt above the letterhead border's
-        // measured straight-edge inner line (y≈0.9427).
+        // Full width, in the space reclaimed by the logo move. Starts at
+        // perLine's bottom edge (0.83), same as every round since 3. The
+        // straight border's inner edge measures out to y≈0.9427, but that
+        // was never the real constraint at this box's own bottom two
+        // corners — the letterhead's decorative corner medallions curve
+        // inward there (measured off the actual artwork: starts around
+        // y≈0.897, reaches x≈0.127 from each side by y≈0.93), well inside
+        // the 0.09/0.91 margin every other field uses safely.
         //
-        // The straight edge was never the real constraint at this box's
-        // own bottom-left/bottom-right corners, though — the letterhead's
-        // decorative corner medallions curve inward there (measured off
-        // the actual artwork: starts around y≈0.897, reaches x≈0.127 from
-        // each side by this box's bottom edge), well past the 0.09/0.91
-        // margin every other field uses safely. `PDFExportService
-        // .drawNotice` doesn't route around that geometrically (an
-        // exclusion-path attempt at that had a real object-lifetime bug
-        // and shipped blank text) — instead it fixes the disclaimer at a
-        // measured 6pt, where the actual printed block (which draws
-        // top-down and stops where it ends, not filling this whole rect)
-        // only reaches to about y≈0.90: right at the edge the medallions
-        // start, not inside them. That margin is why this box stays sized
-        // the way it is rather than needing to shrink further.
-        notice: CGRect(x: 0.09, y: 0.83, width: 0.82, height: 0.10)
+        // Rounds 3-5 all tried to make the box tall enough to hold the
+        // full disclaimer while somehow still dodging that curve —
+        // through exact-margin sizing, an exclusion-path rewrite, and a
+        // fixed small font size in turn — and each one either landed on
+        // the medallions anyway or broke some other way. This box stops
+        // trying: it ends at y=0.89, comfortably above y≈0.897 rather
+        // than pressed right up against it, so it cannot reach the curve
+        // at all regardless of exactly how tall the text renders on a
+        // real device. What makes that workable at only ~48pt of height
+        // is pairing it with a shortened `NoticeText.disclaimer` (see its
+        // own doc comment) and `PDFExportService.drawNotice`'s real
+        // on-device shrink-to-fit, rather than trying to cram the
+        // original long wording into whatever space avoiding the curve
+        // leaves.
+        notice: CGRect(x: 0.09, y: 0.83, width: 0.82, height: 0.06)
     )
 }
 // CGRect already conforms to Codable via the CoreGraphics/Foundation overlay
