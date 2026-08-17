@@ -86,20 +86,23 @@ struct TemplateLayout: Codable, Equatable {
         // the photo row above (0.77 → 0.80, a 0.03 gap vs. the original
         // 0.02) — both per UAT feedback that it was crowding the photos.
         perLine: CGRect(x: 0.46, y: 0.80, width: 0.45, height: 0.03),
-        // Full width, in the space reclaimed by the logo move. Third pass
-        // at this box: round 2 sized it to ~59pt against a boundingRect
-        // estimate that left only ~3pt of slack over the estimated text
-        // height at the 6pt floor, and it still overflowed in practice.
-        // Rather than re-estimate more carefully and hope, this pass
-        // just takes more of the actual available room: starts right at
-        // perLine's bottom edge (0.83 — safe to abut, perLine's own
-        // visible stroke sits at its vertical center, ~0.815, well clear
-        // of this box) and ends at 0.93, ~10pt (0.0127) above the
-        // letterhead border's measured inner edge (y≈0.9427). That's
-        // ~79pt of height, about a third more than round 2 had.
-        // `PDFExportService.drawNotice` also now hard-clips to this rect,
-        // so even if this margin turns out wrong too, the notice can only
-        // ever be clipped, never bleed onto the border again.
+        // Full width, in the space reclaimed by the logo move. Vertical
+        // sizing (0.83–0.93, ~79pt) is unchanged from round 3: starts at
+        // perLine's bottom edge, ends ~10pt above the letterhead border's
+        // measured straight-edge inner line (y≈0.9427). But the straight
+        // edge isn't the real constraint at this box's own bottom-left and
+        // bottom-right corners — the letterhead's decorative corner
+        // medallions curve inward there, past the 0.09/0.91 margin every
+        // other field uses safely (measured off the actual artwork: the
+        // curve starts around y≈0.897 and reaches x≈0.127 from the left,
+        // mirrored on the right, by this box's bottom edge — round 3's
+        // taller box put its own bottom corners squarely in that zone).
+        // No rectangle avoids that on its own; `PDFExportService
+        // .drawNotice` lays the text out with `NSTextContainer
+        // .exclusionPaths` so lines in the bottom third of this box
+        // actually narrow around both medallions instead of running
+        // through them, with the round-3 hard clip still underneath as a
+        // backstop.
         notice: CGRect(x: 0.09, y: 0.83, width: 0.82, height: 0.10)
     )
 }
